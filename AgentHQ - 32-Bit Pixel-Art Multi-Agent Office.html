@@ -1,0 +1,3203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentHQ — 32-Bit Retro Multi-Agent Swarm Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-app: #090d16;
+      --bg-panel: #0f172a;
+      --bg-card: #162033;
+      --bg-input: #0b1120;
+      --border-subtle: #233048;
+      --border-strong: #364766;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-gold: #f59e0b;
+      --accent-amber: #fbbf24;
+      --accent-emerald: #10b981;
+      --accent-purple: #a855f7;
+      --accent-rose: #f43f5e;
+      --accent-cyan: #38bdf8;
+      --font-pixel: 'Press Start 2P', monospace;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-app);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* =====================================================================
+       TOP RETRO-MODERN COMMAND HEADER
+    ===================================================================== */
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 16px;
+      background: linear-gradient(180deg, #151e32 0%, #0e1525 100%);
+      border-bottom: 2px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-badge {
+      width: 40px;
+      height: 40px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, #f59e0b, #ea580c);
+      padding: 2px;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3), inset 0 -2px 0 rgba(0,0,0,0.35);
+      flex-shrink: 0;
+    }
+
+    .brand-badge-inner {
+      width: 100%;
+      height: 100%;
+      background: #090d16;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-pixel);
+      font-size: 11px;
+      color: var(--accent-amber);
+      letter-spacing: -1px;
+    }
+
+    .brand-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-title {
+      font-family: var(--font-pixel);
+      font-size: 14px;
+      color: #ffffff;
+      letter-spacing: 0.5px;
+      text-shadow: 0 2px 0 rgba(0,0,0,0.6);
+    }
+
+    .brand-title span {
+      color: var(--accent-amber);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      background: rgba(16, 185, 129, 0.14);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+    }
+
+    .status-pill.busy {
+      background: rgba(245, 158, 11, 0.18);
+      border-color: rgba(245, 158, 11, 0.5);
+      color: #fcd34d;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulseDot 1.5s infinite;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.35; transform: scale(0.75); }
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .topbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .telemetry-box {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 6px 11px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .telemetry-box strong {
+      color: var(--text-main);
+    }
+
+    /* Retro-Crisp Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: 8px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 12px;
+      cursor: pointer;
+      border: 1px solid var(--border-strong);
+      border-bottom-width: 2px;
+      background: var(--bg-card);
+      color: var(--text-main);
+      transition: all 0.14s ease;
+      user-select: none;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: #1f2d47;
+      border-color: #4b628c;
+      transform: translateY(-1px);
+    }
+
+    .btn:active:not(:disabled) {
+      transform: translateY(1px);
+      border-bottom-width: 1px;
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+      border-color: #fbbf24;
+      border-bottom-color: #9a3412;
+      color: #090d16;
+      font-weight: 700;
+      box-shadow: 0 3px 12px rgba(245, 158, 11, 0.28);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #fbbf24 0%, #f97316 100%);
+      border-color: #fde68a;
+    }
+
+    .btn-amber-soft {
+      background: rgba(245, 158, 11, 0.13);
+      border-color: rgba(245, 158, 11, 0.38);
+      color: #fcd34d;
+    }
+
+    .btn-purple-soft {
+      background: rgba(168, 85, 247, 0.13);
+      border-color: rgba(168, 85, 247, 0.38);
+      color: #d8b4fe;
+    }
+
+    .btn-cyan-soft {
+      background: rgba(56, 189, 248, 0.13);
+      border-color: rgba(56, 189, 248, 0.38);
+      color: #7dd3fc;
+    }
+
+    .btn-emerald-soft {
+      background: rgba(16, 185, 129, 0.13);
+      border-color: rgba(16, 185, 129, 0.38);
+      color: #6ee7b7;
+    }
+
+    .btn-sm {
+      padding: 5px 9px;
+      font-size: 11px;
+    }
+
+    /* =====================================================================
+       MAIN SPLIT WORKSPACE (OFFICE CANVAS LEFT | COMMAND DECK RIGHT)
+    ===================================================================== */
+    .workspace {
+      display: flex;
+      flex: 1;
+      min-height: calc(100vh - 64px);
+    }
+
+    .office-pane {
+      width: 64%;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-right: 2px solid var(--border-subtle);
+      background: radial-gradient(circle at top center, #131c31 0%, #090d16 100%);
+    }
+
+    .office-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 8px 12px;
+    }
+
+    .floor-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .floor-tag {
+      font-family: var(--font-pixel);
+      font-size: 9px;
+      color: var(--accent-amber);
+    }
+
+    .office-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .live-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 13px;
+      border-radius: 10px;
+      background: linear-gradient(90deg, rgba(16, 185, 129, 0.16), rgba(245, 158, 11, 0.15));
+      border: 1px solid rgba(16, 185, 129, 0.45);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: #a7f3d0;
+    }
+
+    .live-banner.visible {
+      display: flex;
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(167, 243, 208, 0.3);
+      border-top-color: #34d399;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* 32-Bit Pixel-Art Canvas Frame */
+    .canvas-stage {
+      position: relative;
+      flex: 1;
+      min-height: 380px;
+      background: #14100e;
+      border: 2px solid var(--border-strong);
+      border-radius: 14px;
+      box-shadow: 0 20px 44px rgba(0, 0, 0, 0.65), inset 0 0 0 2px #070a10;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    canvas#officeCanvas {
+      width: 100%;
+      height: 100%;
+      max-height: 580px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      cursor: pointer;
+      display: block;
+    }
+
+    /* Lighting Mode Pill Top-Right of Canvas */
+    .canvas-mood-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(15, 23, 42, 0.86);
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 4px 9px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #cbd5e1;
+      pointer-events: none;
+    }
+
+    /* Selected Agent Overlay HUD on Canvas */
+    .selected-hud {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      max-width: 470px;
+      background: rgba(15, 23, 42, 0.94);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      padding: 9px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+    }
+
+    .agent-avatar-sq {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-pixel);
+      font-size: 10px;
+      color: #090d16;
+      flex-shrink: 0;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.28);
+    }
+
+    .hud-meta {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .hud-name-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hud-name {
+      font-weight: 700;
+      font-size: 13px;
+      color: #ffffff;
+    }
+
+    .hud-state {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: #1e293b;
+      color: #fcd34d;
+      text-transform: uppercase;
+    }
+
+    .hud-role {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Quick Agent Roster Strip */
+    .roster-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      gap: 7px;
+    }
+
+    .roster-chip {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 10px;
+      border-radius: 10px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+
+    .roster-chip:hover {
+      border-color: var(--border-strong);
+      background: var(--bg-card);
+    }
+
+    .roster-chip.active {
+      border-color: var(--accent-gold);
+      background: rgba(245, 158, 11, 0.1);
+      box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.25);
+    }
+
+    .roster-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      box-shadow: inset 0 -2px 0 rgba(0,0,0,0.3);
+    }
+
+    .roster-chip-info {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .roster-chip-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .roster-chip-status {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* =====================================================================
+       RIGHT PANEL: MISSION CONTROL, ROSTER & DELIVERABLES
+    ===================================================================== */
+    .command-pane {
+      width: 36%;
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 64px);
+    }
+
+    .tab-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 10px 12px;
+      background: #0b1120;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .tab-btn {
+      padding: 8px 6px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.14s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .tab-btn.active {
+      background: var(--bg-card);
+      border-color: var(--border-strong);
+      color: var(--accent-amber);
+    }
+
+    .badge-count {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.18);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .tab-panel {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .tab-panel.active {
+      display: flex;
+    }
+
+    .card-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accent-amber);
+    }
+
+    .mission-textarea {
+      width: 100%;
+      min-height: 82px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 12.5px;
+      line-height: 1.5;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .mission-textarea:focus {
+      border-color: var(--accent-gold);
+    }
+
+    /* 4-Stage Pipeline Chain Preview */
+    .pipeline-preview {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 9px;
+      padding: 9px 10px;
+    }
+
+    .pipeline-label {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .pipeline-nodes {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+    }
+
+    .pipe-node {
+      padding: 5px 4px;
+      border-radius: 6px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+
+    .pipe-node.s1 {
+      background: rgba(56, 189, 248, 0.14);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #bae6fd;
+    }
+
+    .pipe-node.s2 {
+      background: rgba(245, 158, 11, 0.14);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #fde68a;
+    }
+
+    .pipe-node.s3 {
+      background: rgba(16, 185, 129, 0.14);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #a7f3d0;
+    }
+
+    .pipe-node.s4 {
+      background: rgba(236, 72, 153, 0.14);
+      border: 1px solid rgba(236, 72, 153, 0.35);
+      color: #fbcfe8;
+    }
+
+    .pipe-node.active-step {
+      transform: scale(1.06);
+      box-shadow: 0 0 12px rgba(251, 191, 36, 0.45);
+      border-color: #fbbf24;
+    }
+
+    .pipe-arrow {
+      color: var(--text-dim);
+      font-weight: 700;
+      font-size: 10px;
+    }
+
+    /* Preset Cards */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+    }
+
+    .preset-btn {
+      text-align: left;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 9px;
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--accent-gold);
+      background: #141d31;
+    }
+
+    .preset-title-row {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 3px;
+    }
+
+    .preset-desc {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Live Comms Feed */
+    .comms-feed {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 9px 10px;
+      max-height: 165px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .comm-item {
+      line-height: 1.4;
+      color: #cbd5e1;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      padding-bottom: 5px;
+    }
+
+    .comm-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .comm-time {
+      color: var(--text-dim);
+      margin-right: 5px;
+    }
+
+    .comm-from {
+      color: var(--accent-amber);
+      font-weight: 700;
+    }
+
+    /* Team Roster Cards */
+    .team-card {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 11px;
+      padding: 10px 11px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .team-card:hover, .team-card.selected {
+      border-color: var(--accent-gold);
+      background: #141d31;
+    }
+
+    .team-card-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .team-card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .desk-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      color: var(--text-muted);
+    }
+
+    .team-card-role {
+      font-size: 11px;
+      color: var(--accent-amber);
+      margin-top: 1px;
+    }
+
+    .team-card-model {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    /* Artifacts / Deliverables */
+    .artifact-card {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .artifact-card.final {
+      border-color: rgba(16, 185, 129, 0.6);
+      box-shadow: 0 6px 22px rgba(16, 185, 129, 0.12);
+    }
+
+    .artifact-head {
+      padding: 10px 12px;
+      background: #141d31;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .artifact-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .artifact-meta {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .artifact-body {
+      padding: 12px;
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+      font-family: var(--font-sans);
+      max-height: 270px;
+      overflow-y: auto;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px 18px;
+      border: 1px dashed var(--border-strong);
+      border-radius: 12px;
+      background: var(--bg-input);
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    /* =====================================================================
+       MODALS & WALKIE-TALKIE DIRECT DRAWER
+    ===================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 9, 16, 0.84);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 60;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background: var(--bg-panel);
+      border: 2px solid var(--border-strong);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 440px;
+      padding: 18px;
+      box-shadow: 0 24px 52px rgba(0, 0, 0, 0.75);
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 10px;
+    }
+
+    .modal-title {
+      font-family: var(--font-pixel);
+      font-size: 11px;
+      color: var(--accent-amber);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .form-label {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .form-input, .form-select {
+      background: var(--bg-input);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      outline: none;
+    }
+
+    .form-input:focus, .form-select:focus {
+      border-color: var(--accent-gold);
+    }
+
+    .form-row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .color-swatches {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .swatch-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+
+    .swatch-btn.selected {
+      border-color: #ffffff;
+      transform: scale(1.12);
+    }
+
+    /* Walkie-Talkie Floating Drawer */
+    .walkie-drawer {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      width: calc(100vw - 32px);
+      max-width: 395px;
+      background: var(--bg-panel);
+      border: 2px solid var(--accent-gold);
+      border-radius: 16px;
+      box-shadow: 0 22px 54px rgba(0, 0, 0, 0.8);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 50;
+    }
+
+    .walkie-drawer.open {
+      display: flex;
+    }
+
+    .walkie-header {
+      background: #090d16;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .walkie-title {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-amber);
+    }
+
+    .walkie-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .walkie-messages {
+      height: 230px;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: #0e1424;
+    }
+
+    .msg-bubble {
+      max-width: 86%;
+      padding: 8px 11px;
+      border-radius: 11px;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .msg-bubble.user {
+      align-self: flex-end;
+      background: var(--accent-gold);
+      color: #090d16;
+      font-weight: 600;
+    }
+
+    .msg-bubble.agent {
+      align-self: flex-start;
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      color: var(--text-main);
+    }
+
+    .walkie-form {
+      display: flex;
+      gap: 8px;
+      padding: 10px;
+      background: #090d16;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .walkie-input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 7px 10px;
+      color: var(--text-main);
+      font-size: 12px;
+      outline: none;
+    }
+
+    .walkie-input:focus {
+      border-color: var(--accent-gold);
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1e293b;
+      border: 1px solid var(--accent-gold);
+      color: #ffffff;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+      z-index: 80;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.55);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Responsive Breakpoints */
+    @media (max-width: 1080px) {
+      .workspace {
+        flex-direction: column;
+      }
+      .office-pane {
+        width: 100%;
+        border-right: none;
+        border-bottom: 2px solid var(--border-subtle);
+      }
+      .command-pane {
+        width: 100%;
+        max-height: none;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .telemetry-box {
+        display: none;
+      }
+      .preset-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- ======================================================================
+       1. TOP COMMAND HEADER
+  ====================================================================== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-badge">
+        <div class="brand-badge-inner">HQ</div>
+      </div>
+      <div>
+        <div class="brand-title-row">
+          <div class="brand-title">Agent<span>HQ</span></div>
+          <div id="globalStatusPill" class="status-pill">
+            <span class="status-dot"></span>
+            <span id="globalStatusText">SWARM ONLINE</span>
+          </div>
+        </div>
+        <div class="brand-sub">32-Bit Retro Multi-Agent Swarm Orchestration Studio</div>
+      </div>
+    </div>
+
+    <div class="topbar-controls">
+      <div class="telemetry-box">
+        <span>Team: <strong id="statAgents">4/6</strong></span>
+        <span>|</span>
+        <span>Shipped: <strong id="statShipped">4</strong></span>
+        <span>|</span>
+        <span>Tokens: <strong id="statTokens">6,140</strong></span>
+      </div>
+
+      <button id="btnLighting" class="btn btn-cyan-soft btn-sm" title="Cycle Office Lighting">☀️ Day</button>
+      <button id="btnSound" class="btn btn-sm" title="Toggle Retro Synth SFX">🔇 SFX</button>
+      <button id="btnSpeed" class="btn btn-sm" title="Toggle Simulation Speed">⚡ 1x</button>
+      <button id="btnOpenHire" class="btn btn-sm">+ Hire Agent</button>
+      <button id="btnFocusMission" class="btn btn-primary btn-sm">✦ New Mission</button>
+    </div>
+  </header>
+
+  <!-- ======================================================================
+       2. MAIN WORKSPACE (16-BIT PIXEL OFFICE + COMMAND DECK)
+  ====================================================================== -->
+  <main class="workspace">
+    <!-- LEFT: 16-BIT PIXEL-ART OFFICE -->
+    <section class="office-pane">
+      <div class="office-toolbar">
+        <div class="floor-label">
+          <span class="floor-tag">FLOOR 01 // SWARM HQ</span>
+          <span>Click any agent to chat, or click floor / espresso bar / whiteboard / arcade</span>
+        </div>
+        <div class="office-actions">
+          <button id="btnCoffeeBreak" class="btn btn-amber-soft btn-sm">☕ Coffee Break</button>
+          <button id="btnStandup" class="btn btn-purple-soft btn-sm">📋 All-Hands Standup</button>
+          <button id="btnReturnDesks" class="btn btn-sm">💼 Back to Desks</button>
+        </div>
+      </div>
+
+      <div id="liveBanner" class="live-banner">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="spinner"></div>
+          <span id="liveBannerText">Orchestrating 4-stage swarm workflow...</span>
+        </div>
+        <span style="font-size:10px;color:#fcd34d;font-weight:700;">LIVE ORB HANDOFFS</span>
+      </div>
+
+      <div class="canvas-stage">
+        <canvas id="officeCanvas" width="900" height="580"></canvas>
+        <div id="canvasMoodBadge" class="canvas-mood-badge">☀️ SUNLIT DAY</div>
+
+        <!-- Selected Agent HUD -->
+        <div id="selectedHud" class="selected-hud">
+          <div id="hudAvatar" class="agent-avatar-sq" style="background:#f59e0b;">CL</div>
+          <div class="hud-meta">
+            <div class="hud-name-row">
+              <span id="hudName" class="hud-name">Claude</span>
+              <span id="hudState" class="hud-state">IDLE</span>
+            </div>
+            <div id="hudRole" class="hud-role">Lead Architect • Systems &amp; Specs</div>
+          </div>
+          <button id="btnOpenWalkie" class="btn btn-amber-soft btn-sm">📻 Walkie-Talkie</button>
+        </div>
+      </div>
+
+      <!-- Bottom Quick Agent Roster Strip -->
+      <div id="rosterStrip" class="roster-strip"></div>
+    </section>
+
+    <!-- RIGHT: COMMAND & DELIVERABLES PANEL -->
+    <aside class="command-pane">
+      <nav class="tab-bar">
+        <button class="tab-btn active" data-tab="mission">🚀 Mission</button>
+        <button class="tab-btn" data-tab="team">👥 Team (<span id="tabTeamCount">4</span>)</button>
+        <button class="tab-btn" data-tab="artifacts">
+          📦 Deliverables <span id="tabArtifactBadge" class="badge-count" style="display:none;">0</span>
+        </button>
+      </nav>
+
+      <div class="tab-content">
+        <!-- TAB 1: MISSION CONTROL -->
+        <div id="panel-mission" class="tab-panel active">
+          <div class="card-box">
+            <div class="section-header">
+              <span>✦ Swarm Mission Objective</span>
+              <span style="color:var(--text-muted);font-weight:500;">4-Agent Chain</span>
+            </div>
+
+            <textarea
+              id="missionInput"
+              class="mission-textarea"
+              placeholder="Describe what you want your AI swarm to research, architect, code, and QA..."
+            >Build a full-stack SaaS MVP ("PulseLog") for automated AI release notes with GitHub webhook ingestion, real-time changelog feed, and launch growth copy.</textarea>
+
+            <div class="pipeline-preview">
+              <div class="pipeline-label">
+                <span>Live Handoff Pipeline</span>
+                <span id="pipeLatencyLabel">4 Stages</span>
+              </div>
+              <div class="pipeline-nodes">
+                <div id="pipeNode1" class="pipe-node s1">Scout</div>
+                <span class="pipe-arrow">→</span>
+                <div id="pipeNode2" class="pipe-node s2">Claude</div>
+                <span class="pipe-arrow">→</span>
+                <div id="pipeNode3" class="pipe-node s3">Codex</div>
+                <span class="pipe-arrow">→</span>
+                <div id="pipeNode4" class="pipe-node s4">Pixel</div>
+              </div>
+            </div>
+
+            <button id="btnLaunchMission" class="btn btn-primary" style="width:100%;padding:10px;">
+              ▶ Launch 4-Agent Swarm Mission
+            </button>
+          </div>
+
+          <div class="card-box">
+            <div class="section-header">
+              <span>⚡ Quick Mission Presets</span>
+            </div>
+            <div id="presetList" class="preset-grid"></div>
+          </div>
+
+          <div class="card-box">
+            <div class="section-header">
+              <span>📡 Live Studio Telemetry &amp; Comms</span>
+              <span style="color:var(--accent-emerald);">● ONLINE</span>
+            </div>
+            <div id="commsFeed" class="comms-feed"></div>
+          </div>
+        </div>
+
+        <!-- TAB 2: TEAM ROSTER -->
+        <div id="panel-team" class="tab-panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div style="font-size:13px;font-weight:700;">Active Studio Roster</div>
+              <div style="font-size:11px;color:var(--text-muted);">Click to focus on floor or open 1-on-1 radio</div>
+            </div>
+            <button id="btnHireFromTab" class="btn btn-primary btn-sm">+ Hire Agent</button>
+          </div>
+          <div id="teamRosterList" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+
+        <!-- TAB 3: ARTIFACTS & DELIVERABLES -->
+        <div id="panel-artifacts" class="tab-panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div style="font-size:13px;font-weight:700;">Compiled Swarm Deliverables</div>
+              <div style="font-size:11px;color:var(--text-muted);">Inspect, copy, or export complete markdown specs</div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button id="btnDownloadAll" class="btn btn-emerald-soft btn-sm" style="display:none;">⬇ Export .MD</button>
+              <button id="btnClearArtifacts" class="btn btn-sm" style="display:none;">Clear</button>
+            </div>
+          </div>
+          <div id="artifactsList" style="display:flex;flex-direction:column;gap:10px;">
+            <div class="empty-state">
+              <strong>No mission deliverables yet</strong><br />
+              Launch a mission in Mission Control and watch Swarm Scout, Claude, Codex, and Pixel collaborate across the studio with glowing data orbs!
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ======================================================================
+       3. HIRE NEW CUSTOM AGENT MODAL
+  ====================================================================== -->
+  <div id="hireModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="modal-title">+ HIRE 16-BIT STUDIO AGENT</span>
+        <button id="btnCloseHire" class="btn btn-sm">✕</button>
+      </div>
+
+      <form id="hireForm" style="display:flex;flex-direction:column;gap:11px;">
+        <div class="form-group">
+          <label class="form-label">Agent Codename</label>
+          <input id="hireName" class="form-input" type="text" maxlength="14" required placeholder="e.g., Nova, Atlas, Vex, Aria..." />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Role &amp; Title</label>
+          <input id="hireRole" class="form-input" type="text" required value="Security &amp; Infra Specialist" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Specialty System Prompt</label>
+          <input id="hirePrompt" class="form-input" type="text" value="You are a meticulous specialist focused on production reliability, crisp engineering, and high user delight." />
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">Swarm Stage Slot</label>
+            <select id="hireSpecialty" class="form-select">
+              <option value="scout">Stage 1: Intel &amp; Research</option>
+              <option value="planner">Stage 2: Systems Architect</option>
+              <option value="builder" selected>Stage 3: Core Engineer</option>
+              <option value="designer">Stage 4: QA &amp; Polish</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pixel Accessory</label>
+            <select id="hireAccessory" class="form-select">
+              <option value="glasses">Amber Glasses</option>
+              <option value="headset">Cyber Headphones</option>
+              <option value="cap">Explorer Visor Cap</option>
+              <option value="beret">Artist Beret</option>
+              <option value="crown">Gold Ops Crown</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Outfit &amp; Monitor Accent</label>
+          <div id="colorSwatches" class="color-swatches"></div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px;">
+          <button type="button" id="btnCancelHire" class="btn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Onboard Through Front Door</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       4. 1-ON-1 WALKIE-TALKIE DIRECT DRAWER
+  ====================================================================== -->
+  <div id="walkieDrawer" class="walkie-drawer">
+    <div class="walkie-header">
+      <div>
+        <div id="walkieTitle" class="walkie-title">📻 CH-01: Claude</div>
+        <div id="walkieSub" class="walkie-sub">Lead Architect • Direct Line</div>
+      </div>
+      <button id="btnCloseWalkie" class="btn btn-sm">✕</button>
+    </div>
+    <div id="walkieMessages" class="walkie-messages"></div>
+    <form id="walkieForm" class="walkie-form">
+      <input id="walkieInput" class="walkie-input" type="text" placeholder="Assign micro-task or ask question..." />
+      <button type="submit" id="btnWalkieSend" class="btn btn-primary btn-sm">Send</button>
+    </form>
+  </div>
+
+  <!-- Toast Banner -->
+  <div id="toast" class="toast"></div>
+
+  <!-- ======================================================================
+       5. 16-BIT PIXEL ENGINE, RETRO AUDIO SYNTH & SWARM ORCHESTRATOR
+  ====================================================================== -->
+  <script>
+    (function () {
+      'use strict';
+
+      // --------------------------------------------------------------------
+      // CONFIGURATION & GEMINI API INTEGRATION (WITH GRACEFUL FALLBACKS)
+      // --------------------------------------------------------------------
+      const apiKey = "";
+      const GEMINI_MODEL = "gemini-2.5-flash";
+
+      async function callGeminiWithFallback({ systemPrompt, userPrompt, fallbackGenerator }) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+        const payload = {
+          contents: [{ parts: [{ text: userPrompt }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] }
+        };
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text && text.trim().length > 0) {
+              return { text: text.trim(), simulated: false };
+            }
+            throw new Error("Empty model response");
+          } catch (err) {
+            if (attempt === 0) {
+              await new Promise((r) => setTimeout(r, 700));
+            }
+          }
+        }
+        await new Promise((r) => setTimeout(r, 950));
+        return { text: fallbackGenerator(), simulated: true };
+      }
+
+      // --------------------------------------------------------------------
+      // RETRO WEB AUDIO SYNTHESIZER (Muted by Default, Clean Toggle)
+      // --------------------------------------------------------------------
+      const sfx = {
+        enabled: false,
+        ctx: null,
+        ensureCtx() {
+          if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) this.ctx = new AudioCtx();
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+          }
+        },
+        playTone(freq, type, duration, vol = 0.06, slideTo = null) {
+          if (!this.enabled) return;
+          this.ensureCtx();
+          if (!this.ctx) return;
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, now);
+          if (slideTo) {
+            osc.frequency.exponentialRampToValueAtTime(slideTo, now + duration);
+          }
+          gain.gain.setValueAtTime(vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + duration);
+        },
+        blip() {
+          this.playTone(540, 'square', 0.06, 0.045, 720);
+        },
+        step() {
+          this.playTone(150 + Math.random() * 40, 'triangle', 0.035, 0.025);
+        },
+        orbLaunch() {
+          this.playTone(440, 'sine', 0.22, 0.07, 880);
+        },
+        fanfare() {
+          if (!this.enabled) return;
+          [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
+            setTimeout(() => this.playTone(f, 'square', 0.14, 0.05), idx * 90);
+          });
+        }
+      };
+
+      // --------------------------------------------------------------------
+      // 16-BIT OFFICE WORLD GEOMETRY & LIGHTING THEMES
+      // --------------------------------------------------------------------
+      const WORLD_W = 900;
+      const WORLD_H = 580;
+
+      const LIGHTING_MODES = [
+        {
+          id: 'day',
+          label: '☀️ Day',
+          badge: '☀️ SUNLIT DAY',
+          skyTop: '#38bdf8',
+          skyBottom: '#bae6fd',
+          sunbeamColor: 'rgba(254, 243, 199, 0.09)',
+          ambientTint: null,
+          lampGlow: 0.18
+        },
+        {
+          id: 'sunset',
+          label: '🌅 Sunset',
+          badge: '🌅 GOLDEN SUNSET',
+          skyTop: '#f97316',
+          skyBottom: '#fde047',
+          sunbeamColor: 'rgba(251, 146, 60, 0.14)',
+          ambientTint: 'rgba(180, 65, 14, 0.14)',
+          lampGlow: 0.34
+        },
+        {
+          id: 'night',
+          label: '🌙 Lo-Fi Night',
+          badge: '🌙 MIDNIGHT LO-FI',
+          skyTop: '#090d16',
+          skyBottom: '#1e1b4b',
+          sunbeamColor: 'rgba(99, 102, 241, 0.07)',
+          ambientTint: 'rgba(10, 15, 32, 0.44)',
+          lampGlow: 0.58
+        }
+      ];
+
+      const WAYPOINTS = {
+        door: { x: 450, y: 534 },
+        coffeeSpots: [
+          { x: 105, y: 186 },
+          { x: 155, y: 186 },
+          { x: 130, y: 215 },
+          { x: 185, y: 205 },
+          { x: 82, y: 210 },
+          { x: 168, y: 224 }
+        ],
+        whiteboard: { x: 450, y: 148 },
+        standupSpots: [
+          { x: 365, y: 182 },
+          { x: 420, y: 192 },
+          { x: 480, y: 192 },
+          { x: 535, y: 182 },
+          { x: 395, y: 224 },
+          { x: 505, y: 224 }
+        ],
+        loungeArcade: { x: 825, y: 452 }
+      };
+
+      const DESKS = [
+        { id: 0, x: 150, y: 318, seatX: 150, seatY: 350, monitorColor: '#f59e0b' },
+        { id: 1, x: 330, y: 318, seatX: 330, seatY: 350, monitorColor: '#10b981' },
+        { id: 2, x: 570, y: 318, seatX: 570, seatY: 350, monitorColor: '#38bdf8' },
+        { id: 3, x: 750, y: 318, seatX: 750, seatY: 350, monitorColor: '#ec4899' },
+        { id: 4, x: 240, y: 446, seatX: 240, seatY: 478, monitorColor: '#a855f7' },
+        { id: 5, x: 660, y: 446, seatX: 660, seatY: 478, monitorColor: '#fb923c' }
+      ];
+
+      const SWATCH_COLORS = ['#38bdf8', '#f59e0b', '#10b981', '#ec4899', '#a855f7', '#f43f5e'];
+
+      const PRESETS = [
+        {
+          title: '🚀 Build SaaS MVP',
+          prompt:
+            'Build a full-stack SaaS MVP ("PulseLog") for automated AI release notes with GitHub webhook ingestion, real-time changelog feed, and launch growth copy.'
+        },
+        {
+          title: '🛡️ Security Audit & Patch',
+          prompt:
+            'Audit a multi-tenant Node.js & PostgreSQL webhook service for replay attacks, tenant isolation leaks, rate-limiting bypasses, and deliver hardened middleware.'
+        },
+        {
+          title: '📣 Launch Growth Campaign',
+          prompt:
+            'Research developer pain points and craft a high-converting Product Hunt launch strategy, landing page hero copy, and 5-day X/Twitter technical thread.'
+        },
+        {
+          title: '🔥 Debug Production Outage',
+          prompt:
+            'Diagnose a cascading Redis connection pool exhaustion & WebSocket reconnect storm under 50k concurrent users, and produce a zero-downtime hotfix runbook.'
+        }
+      ];
+
+      const IDLE_THOUGHTS = [
+        'Aligning context...',
+        'Zero latency today!',
+        'Need more espresso ☕',
+        'Indexing vector store',
+        'Reviewing PR #142',
+        'Optimizing prompts ✨',
+        'Syncing Swarm state'
+      ];
+
+      // --------------------------------------------------------------------
+      // APPLICATION STATE
+      // --------------------------------------------------------------------
+      const state = {
+        agents: [
+          {
+            id: 'claude-1',
+            name: 'Claude',
+            role: 'Lead Architect',
+            specialtyLabel: 'Systems & Specs',
+            specialty: 'planner',
+            primaryColor: '#d97706', // Warm amber/terracotta cardigan
+            secondaryColor: '#fef3c7',
+            skinColor: '#fed7aa',
+            hairColor: '#3b2f2f',
+            accessory: 'glasses',
+            facing: 'down',
+            deskId: 0,
+            x: DESKS[0].seatX,
+            y: DESKS[0].seatY,
+            targetX: DESKS[0].seatX,
+            targetY: DESKS[0].seatY,
+            status: 'idle',
+            pendingStatus: 'idle',
+            bubble: 'Specs aligned!',
+            frame: 0,
+            jumpOffset: 0,
+            personaPrompt:
+              'You are Claude, Lead Architect in AgentHQ. Produce clear, deeply structured system architectures, data schemas, and execution roadmaps with crisp markdown sections.'
+          },
+          {
+            id: 'codex-1',
+            name: 'Codex',
+            role: 'Systems Engineer',
+            specialtyLabel: 'Code & Infra',
+            specialty: 'builder',
+            primaryColor: '#10b981', // Emerald/mint cyber-hoodie
+            secondaryColor: '#6ee7b7',
+            skinColor: '#fde68a',
+            hairColor: '#0f172a',
+            accessory: 'headset',
+            facing: 'down',
+            deskId: 1,
+            x: DESKS[1].seatX,
+            y: DESKS[1].seatY,
+            targetX: DESKS[1].seatX,
+            targetY: DESKS[1].seatY,
+            status: 'idle',
+            pendingStatus: 'idle',
+            bubble: 'Compilers hot ⚡',
+            frame: 0,
+            jumpOffset: 0,
+            personaPrompt:
+              'You are Codex, Systems Engineer in AgentHQ. Turn architectural plans into concrete, production-ready code implementations, API contracts, and infrastructure configs.'
+          },
+          {
+            id: 'scout-1',
+            name: 'Swarm Scout',
+            role: 'Intel & Research',
+            specialtyLabel: 'Signals & Edge Cases',
+            specialty: 'scout',
+            primaryColor: '#0284c7', // Sky-blue explorer jacket
+            secondaryColor: '#7dd3fc',
+            skinColor: '#e0ac69',
+            hairColor: '#7c2d12',
+            accessory: 'cap',
+            facing: 'down',
+            deskId: 2,
+            x: DESKS[2].seatX,
+            y: DESKS[2].seatY,
+            targetX: DESKS[2].seatX,
+            targetY: DESKS[2].seatY,
+            status: 'idle',
+            pendingStatus: 'idle',
+            bubble: 'Scanning signals...',
+            frame: 0,
+            jumpOffset: 0,
+            personaPrompt:
+              'You are Swarm Scout, Intel & Research Lead in AgentHQ. Gather domain intelligence, uncover edge cases, user requirements, and competitive insights in a crisp INTEL.JSON/markdown brief.'
+          },
+          {
+            id: 'pixel-1',
+            name: 'Pixel',
+            role: 'QA & Design Lead',
+            specialtyLabel: 'UX, Polish & Audit',
+            specialty: 'designer',
+            primaryColor: '#db2777', // Violet/magenta studio outfit
+            secondaryColor: '#f472b6',
+            skinColor: '#ffedd5',
+            hairColor: '#4c1d95',
+            accessory: 'beret',
+            facing: 'down',
+            deskId: 3,
+            x: DESKS[3].seatX,
+            y: DESKS[3].seatY,
+            targetX: DESKS[3].seatX,
+            targetY: DESKS[3].seatY,
+            status: 'idle',
+            pendingStatus: 'idle',
+            bubble: 'Pixel-perfect ✨',
+            frame: 0,
+            jumpOffset: 0,
+            personaPrompt:
+              'You are Pixel, QA & Design Lead in AgentHQ. Audit deliverables for UX clarity, accessibility, edge-case resilience, and synthesize the polished final launch summary.'
+          }
+        ],
+        selectedAgentId: 'claude-1',
+        lightingIdx: 0,
+        simSpeed: 1,
+        isMissionRunning: false,
+        shippedCount: 4,
+        tokensCount: 6140,
+        packets: [],
+        emotes: [],
+        steamWisps: [],
+        clouds: [
+          { x: 65, y: 26, w: 32, speed: 0.008 },
+          { x: 120, y: 34, w: 22, speed: 0.005 },
+          { x: 700, y: 24, w: 36, speed: 0.007 },
+          { x: 755, y: 35, w: 24, speed: 0.009 }
+        ],
+        comms: [
+          { time: '09:00', from: 'System', text: 'AgentHQ 32-Bit Studio online. 4 specialists ready.' }
+        ],
+        artifacts: [],
+        directChats: {},
+        selectedSwatch: SWATCH_COLORS[0]
+      };
+
+      // --------------------------------------------------------------------
+      // DOM REFERENCES
+      // --------------------------------------------------------------------
+      const canvas = document.getElementById('officeCanvas');
+      const ctx = canvas.getContext('2d');
+
+      const els = {
+        globalStatusPill: document.getElementById('globalStatusPill'),
+        globalStatusText: document.getElementById('globalStatusText'),
+        statAgents: document.getElementById('statAgents'),
+        statShipped: document.getElementById('statShipped'),
+        statTokens: document.getElementById('statTokens'),
+        btnLighting: document.getElementById('btnLighting'),
+        btnSound: document.getElementById('btnSound'),
+        btnSpeed: document.getElementById('btnSpeed'),
+        btnOpenHire: document.getElementById('btnOpenHire'),
+        btnFocusMission: document.getElementById('btnFocusMission'),
+        btnCoffeeBreak: document.getElementById('btnCoffeeBreak'),
+        btnStandup: document.getElementById('btnStandup'),
+        btnReturnDesks: document.getElementById('btnReturnDesks'),
+        liveBanner: document.getElementById('liveBanner'),
+        liveBannerText: document.getElementById('liveBannerText'),
+        canvasMoodBadge: document.getElementById('canvasMoodBadge'),
+        hudAvatar: document.getElementById('hudAvatar'),
+        hudName: document.getElementById('hudName'),
+        hudState: document.getElementById('hudState'),
+        hudRole: document.getElementById('hudRole'),
+        btnOpenWalkie: document.getElementById('btnOpenWalkie'),
+        rosterStrip: document.getElementById('rosterStrip'),
+        tabBtns: document.querySelectorAll('.tab-btn'),
+        tabPanels: document.querySelectorAll('.tab-panel'),
+        tabTeamCount: document.getElementById('tabTeamCount'),
+        tabArtifactBadge: document.getElementById('tabArtifactBadge'),
+        missionInput: document.getElementById('missionInput'),
+        pipeNode1: document.getElementById('pipeNode1'),
+        pipeNode2: document.getElementById('pipeNode2'),
+        pipeNode3: document.getElementById('pipeNode3'),
+        pipeNode4: document.getElementById('pipeNode4'),
+        btnLaunchMission: document.getElementById('btnLaunchMission'),
+        presetList: document.getElementById('presetList'),
+        commsFeed: document.getElementById('commsFeed'),
+        teamRosterList: document.getElementById('teamRosterList'),
+        btnHireFromTab: document.getElementById('btnHireFromTab'),
+        artifactsList: document.getElementById('artifactsList'),
+        btnDownloadAll: document.getElementById('btnDownloadAll'),
+        btnClearArtifacts: document.getElementById('btnClearArtifacts'),
+        hireModal: document.getElementById('hireModal'),
+        btnCloseHire: document.getElementById('btnCloseHire'),
+        btnCancelHire: document.getElementById('btnCancelHire'),
+        hireForm: document.getElementById('hireForm'),
+        hireName: document.getElementById('hireName'),
+        hireRole: document.getElementById('hireRole'),
+        hirePrompt: document.getElementById('hirePrompt'),
+        hireSpecialty: document.getElementById('hireSpecialty'),
+        hireAccessory: document.getElementById('hireAccessory'),
+        colorSwatches: document.getElementById('colorSwatches'),
+        walkieDrawer: document.getElementById('walkieDrawer'),
+        walkieTitle: document.getElementById('walkieTitle'),
+        walkieSub: document.getElementById('walkieSub'),
+        btnCloseWalkie: document.getElementById('btnCloseWalkie'),
+        walkieMessages: document.getElementById('walkieMessages'),
+        walkieForm: document.getElementById('walkieForm'),
+        walkieInput: document.getElementById('walkieInput'),
+        btnWalkieSend: document.getElementById('btnWalkieSend'),
+        toast: document.getElementById('toast')
+      };
+
+      // --------------------------------------------------------------------
+      // UI & SIMULATION HELPERS
+      // --------------------------------------------------------------------
+      function showToast(msg) {
+        els.toast.textContent = msg;
+        els.toast.classList.add('show');
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(() => els.toast.classList.remove('show'), 2400);
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      function addComm(from, text) {
+        const timeStr = new Date().toTimeString().slice(0, 5);
+        state.comms.unshift({ time: timeStr, from, text });
+        if (state.comms.length > 45) state.comms.pop();
+        renderComms();
+      }
+
+      function renderComms() {
+        els.commsFeed.innerHTML = state.comms
+          .map(
+            (c) =>
+              `<div class="comm-item"><span class="comm-time">[${c.time}]</span><span class="comm-from">${escapeHtml(
+                c.from
+              )}:</span> ${escapeHtml(c.text)}</div>`
+          )
+          .join('');
+      }
+
+      function switchTab(tabName) {
+        els.tabBtns.forEach((b) => b.classList.toggle('active', b.dataset.tab === tabName));
+        els.tabPanels.forEach((p) => p.classList.toggle('active', p.id === `panel-${tabName}`));
+      }
+
+      function getSelectedAgent() {
+        return state.agents.find((a) => a.id === state.selectedAgentId) || state.agents[0];
+      }
+
+      function spawnEmote(x, y, text, color = '#fbbf24') {
+        state.emotes.push({
+          x,
+          y,
+          text,
+          color,
+          life: 1.0
+        });
+      }
+
+      function triggerAgentJump(agent, emoteText = '✨') {
+        agent.jumpOffset = -14;
+        spawnEmote(agent.x, agent.y - 36, emoteText, '#fde047');
+      }
+
+      function moveAgent(agent, tx, ty, nextStatus, bubbleText) {
+        agent.targetX = tx;
+        agent.targetY = ty;
+        agent.status = 'walking';
+        agent.pendingStatus = nextStatus || 'idle';
+        if (bubbleText) agent.bubble = bubbleText;
+      }
+
+      function spawnPacket(fromAgent, toAgent, label, color) {
+        if (!fromAgent || !toAgent) return;
+        sfx.orbLaunch();
+        state.packets.push({
+          fromX: fromAgent.x,
+          fromY: fromAgent.y - 18,
+          toX: toAgent.x,
+          toY: toAgent.y - 18,
+          progress: 0,
+          label,
+          color: color || '#fbbf24'
+        });
+      }
+
+      function setActivePipelineNode(stageNum) {
+        [els.pipeNode1, els.pipeNode2, els.pipeNode3, els.pipeNode4].forEach((el, idx) => {
+          el.classList.toggle('active-step', idx + 1 === stageNum);
+        });
+      }
+
+      function updateTelemetryAndHud() {
+        els.statAgents.textContent = `${state.agents.length}/6`;
+        els.statShipped.textContent = String(state.shippedCount);
+        els.statTokens.textContent = state.tokensCount.toLocaleString();
+        els.tabTeamCount.textContent = String(state.agents.length);
+        els.btnOpenHire.disabled = state.agents.length >= 6;
+        els.btnHireFromTab.disabled = state.agents.length >= 6;
+
+        if (state.isMissionRunning) {
+          els.globalStatusPill.classList.add('busy');
+          els.globalStatusText.textContent = 'SWARM ACTIVE';
+        } else {
+          els.globalStatusPill.classList.remove('busy');
+          els.globalStatusText.textContent = 'SWARM ONLINE';
+        }
+
+        const sel = getSelectedAgent();
+        if (sel) {
+          els.hudAvatar.style.background = sel.primaryColor;
+          els.hudAvatar.textContent = sel.name.slice(0, 2).toUpperCase();
+          els.hudName.textContent = sel.name;
+          els.hudState.textContent = sel.status.toUpperCase();
+          els.hudRole.textContent = `${sel.role} • ${sel.specialtyLabel}`;
+        }
+
+        // Map pipeline stage slots
+        const s1 = state.agents.find((a) => a.specialty === 'scout') || state.agents[2] || state.agents[0];
+        const s2 = state.agents.find((a) => a.specialty === 'planner') || state.agents[0];
+        const s3 = state.agents.find((a) => a.specialty === 'builder') || state.agents[1] || s2;
+        const s4 = state.agents.find((a) => a.specialty === 'designer') || state.agents[3] || s3;
+        if (s1) els.pipeNode1.textContent = s1.name;
+        if (s2) els.pipeNode2.textContent = s2.name;
+        if (s3) els.pipeNode3.textContent = s3.name;
+        if (s4) els.pipeNode4.textContent = s4.name;
+
+        // Bottom Quick Roster Strip
+        els.rosterStrip.innerHTML = state.agents
+          .map(
+            (a) => `
+          <button class="roster-chip ${a.id === state.selectedAgentId ? 'active' : ''}" data-select-agent="${a.id}">
+            <span class="roster-dot" style="background:${a.primaryColor};"></span>
+            <div class="roster-chip-info">
+              <div class="roster-chip-name">${escapeHtml(a.name)}</div>
+              <div class="roster-chip-status">${escapeHtml(a.bubble)}</div>
+            </div>
+          </button>`
+          )
+          .join('');
+
+        // Team Tab Roster
+        els.teamRosterList.innerHTML = state.agents
+          .map(
+            (a) => `
+          <div class="team-card ${a.id === state.selectedAgentId ? 'selected' : ''}" data-select-agent="${a.id}">
+            <div class="team-card-left">
+              <div class="agent-avatar-sq" style="background:${a.primaryColor};">${escapeHtml(
+              a.name.slice(0, 2).toUpperCase()
+            )}</div>
+              <div>
+                <div class="team-card-title">
+                  <span>${escapeHtml(a.name)}</span>
+                  <span class="desk-badge">Desk #${a.deskId + 1}</span>
+                </div>
+                <div class="team-card-role">${escapeHtml(a.role)}</div>
+                <div class="team-card-model">${escapeHtml(a.specialtyLabel)} • ${a.status.toUpperCase()}</div>
+              </div>
+            </div>
+            <button class="btn btn-amber-soft btn-sm" data-walkie-agent="${a.id}">📻 Radio</button>
+          </div>`
+          )
+          .join('');
+      }
+
+      function renderPresets() {
+        els.presetList.innerHTML = PRESETS.map(
+          (p, idx) => `
+          <button class="preset-btn" data-preset-idx="${idx}">
+            <div class="preset-title-row">${escapeHtml(p.title)}</div>
+            <div class="preset-desc">${escapeHtml(p.prompt)}</div>
+          </button>`
+        ).join('');
+      }
+
+      function renderArtifacts() {
+        const count = state.artifacts.length;
+        if (count > 0) {
+          els.tabArtifactBadge.style.display = 'inline-block';
+          els.tabArtifactBadge.textContent = String(count);
+          els.btnDownloadAll.style.display = 'inline-flex';
+          els.btnClearArtifacts.style.display = 'inline-flex';
+        } else {
+          els.tabArtifactBadge.style.display = 'none';
+          els.btnDownloadAll.style.display = 'none';
+          els.btnClearArtifacts.style.display = 'none';
+          els.artifactsList.innerHTML = `
+            <div class="empty-state">
+              <strong>No mission deliverables yet</strong><br />
+              Launch a mission in Mission Control and watch Swarm Scout, Claude, Codex, and Pixel collaborate across the studio with glowing data orbs!
+            </div>`;
+          return;
+        }
+
+        els.artifactsList.innerHTML = state.artifacts
+          .map(
+            (art, idx) => `
+          <div class="artifact-card ${art.isFinal ? 'final' : ''}">
+            <div class="artifact-head">
+              <div>
+                <div class="artifact-title">
+                  <span style="width:9px;height:9px;border-radius:50%;background:${art.color};display:inline-block;"></span>
+                  <span>${escapeHtml(art.stageTitle)}</span>
+                </div>
+                <div class="artifact-meta">By ${escapeHtml(art.agentName)} (${escapeHtml(
+              art.agentRole
+            )}) • ${art.time} • ${art.tokens} tok</div>
+              </div>
+              <button class="btn btn-sm" data-copy-artifact="${idx}">📋 Copy</button>
+            </div>
+            <div class="artifact-body">${escapeHtml(art.content)}</div>
+          </div>`
+          )
+          .join('');
+      }
+
+      // --------------------------------------------------------------------
+      // OFFICE EVENTS & 4-STAGE MULTI-AGENT ORCHESTRATION
+      // --------------------------------------------------------------------
+      function triggerCoffeeBreak() {
+        if (state.isMissionRunning) return;
+        sfx.blip();
+        addComm('Office', '☕ Coffee Break! Agents heading to the Espresso & Snack Bar.');
+        state.agents.forEach((ag, i) => {
+          const spot = WAYPOINTS.coffeeSpots[i % WAYPOINTS.coffeeSpots.length];
+          moveAgent(ag, spot.x, spot.y, 'coffee', 'Fresh espresso ☕');
+        });
+        updateTelemetryAndHud();
+      }
+
+      function triggerAllHandsStandup() {
+        if (state.isMissionRunning) return;
+        sfx.blip();
+        addComm('Office', '📋 All-Hands Standup! Gathering around the War Room Whiteboard.');
+        state.agents.forEach((ag, i) => {
+          const spot = WAYPOINTS.standupSpots[i % WAYPOINTS.standupSpots.length];
+          moveAgent(ag, spot.x, spot.y, 'meeting', 'Syncing sprint...');
+        });
+        updateTelemetryAndHud();
+      }
+
+      function returnAllToDesks() {
+        if (state.isMissionRunning) return;
+        sfx.blip();
+        state.agents.forEach((ag) => {
+          const desk = DESKS[ag.deskId % DESKS.length];
+          moveAgent(ag, desk.seatX, desk.seatY, 'idle', 'At workstation');
+        });
+        updateTelemetryAndHud();
+      }
+
+      async function launchSwarmMission() {
+        const prompt = els.missionInput.value.trim();
+        if (!prompt || state.isMissionRunning) return;
+
+        state.isMissionRunning = true;
+        els.btnLaunchMission.disabled = true;
+        els.btnCoffeeBreak.disabled = true;
+        els.btnStandup.disabled = true;
+        els.btnReturnDesks.disabled = true;
+        els.liveBanner.classList.add('visible');
+        sfx.blip();
+        updateTelemetryAndHud();
+        switchTab('artifacts');
+
+        // 4-Stage Pipeline: Scout -> Claude -> Codex -> Pixel
+        const scout = state.agents.find((a) => a.specialty === 'scout') || state.agents[2] || state.agents[0];
+        const planner = state.agents.find((a) => a.specialty === 'planner') || state.agents[0];
+        const builder = state.agents.find((a) => a.specialty === 'builder') || state.agents[1] || planner;
+        const designer = state.agents.find((a) => a.specialty === 'designer') || state.agents[3] || builder;
+
+        addComm('User', `🚀 Launched 4-Agent Mission: "${prompt.slice(0, 62)}..."`);
+
+        try {
+          // STAGE 1: SWARM SCOUT (Intel & Edge Cases)
+          setActivePipelineNode(1);
+          els.liveBannerText.textContent = `Stage 1/4: ${scout.name} gathering domain intel & requirements...`;
+          const sDesk = DESKS[scout.deskId % DESKS.length];
+          moveAgent(scout, sDesk.seatX, sDesk.seatY, 'working', 'Compiling INTEL.JSON...');
+          spawnEmote(scout.x, scout.y - 34, '🔍', '#38bdf8');
+
+          const res1 = await callGeminiWithFallback({
+            systemPrompt: scout.personaPrompt,
+            userPrompt: `Mission Goal:\n"${prompt}"\n\nCompile a concise Intel & Requirements Brief (user personas, critical edge cases, and key technical constraints) for our Lead Architect.`,
+            fallbackGenerator: () =>
+              `### INTEL.JSON — Domain & Edge-Case Brief\n- **Core Objective**: ${prompt}\n- **Primary User Flow**: Sub-200ms ingestion, real-time streaming updates, and zero-config webhook verification.\n- **Critical Edge Cases**: Duplicate webhook retries (require idempotency keys), burst traffic spikes, and graceful offline/fallback states.`
+          });
+
+          const tok1 = Math.round(res1.text.length * 0.34) + 190;
+          state.tokensCount += tok1;
+          state.artifacts.unshift({
+            stageTitle: 'Stage 1 • Intel & Edge-Case Brief (INTEL.JSON)',
+            agentName: scout.name,
+            agentRole: scout.role,
+            color: scout.primaryColor,
+            content: res1.text,
+            tokens: tok1,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isFinal: false
+          });
+          renderArtifacts();
+
+          moveAgent(scout, sDesk.seatX, sDesk.seatY, 'idle', 'Intel ready! ✓');
+          spawnPacket(scout, planner, 'INTEL.JSON', scout.primaryColor);
+          addComm(scout.name, `Transmitted INTEL.JSON orb to ${planner.name}.`);
+
+          // STAGE 2: CLAUDE AT WHITEBOARD (System Architecture)
+          setActivePipelineNode(2);
+          els.liveBannerText.textContent = `Stage 2/4: ${planner.name} sketching ARCH_SPEC at War Room Whiteboard...`;
+          moveAgent(
+            planner,
+            WAYPOINTS.whiteboard.x - 16,
+            WAYPOINTS.whiteboard.y + 34,
+            'working',
+            'Sketching ARCH_SPEC...'
+          );
+          spawnEmote(planner.x, planner.y - 34, '🧠', '#f59e0b');
+          addComm(planner.name, `Walked to War Room Whiteboard to draft ARCH_SPEC.`);
+
+          const res2 = await callGeminiWithFallback({
+            systemPrompt: planner.personaPrompt,
+            userPrompt: `Mission Goal:\n"${prompt}"\n\nIntel Brief from ${scout.name}:\n${res1.text}\n\nDesign a clean, modular System Architecture & Data Schema specification (ARCH_SPEC) for our Systems Engineer.`,
+            fallbackGenerator: () =>
+              `### ARCH_SPEC — Modular System Blueprint\n- **Ingestion Layer**: Stateless API gateway validating HMAC signatures and enforcing idempotency keys.\n- **Event Pipeline**: Async worker queue decoupling ingestion from AI enrichment and fan-out.\n- **Data Model**: \`projects\`, \`events (id, payload, status, created_at)\`, and \`deliverables\` with indexed tenant partitioning.`
+          });
+
+          const tok2 = Math.round(res2.text.length * 0.35) + 250;
+          state.tokensCount += tok2;
+          state.artifacts.unshift({
+            stageTitle: 'Stage 2 • System Architecture Spec (ARCH_SPEC)',
+            agentName: planner.name,
+            agentRole: planner.role,
+            color: planner.primaryColor,
+            content: res2.text,
+            tokens: tok2,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isFinal: false
+          });
+          renderArtifacts();
+
+          const pDesk = DESKS[planner.deskId % DESKS.length];
+          moveAgent(planner, pDesk.seatX, pDesk.seatY, 'idle', 'Spec complete ✓');
+          spawnPacket(planner, builder, 'ARCH_SPEC', planner.primaryColor);
+          addComm(planner.name, `Handed off ARCH_SPEC orb to ${builder.name}.`);
+
+          // STAGE 3: CODEX AT WORKSTATION (Core Implementation)
+          setActivePipelineNode(3);
+          els.liveBannerText.textContent = `Stage 3/4: ${builder.name} coding BUILD_V1 at Desk #${builder.deskId + 1}...`;
+          const bDesk = DESKS[builder.deskId % DESKS.length];
+          moveAgent(builder, bDesk.seatX, bDesk.seatY, 'working', 'Coding BUILD_V1...');
+          spawnEmote(builder.x, builder.y - 34, '</>', '#10b981');
+
+          const res3 = await callGeminiWithFallback({
+            systemPrompt: builder.personaPrompt,
+            userPrompt: `Mission Goal:\n"${prompt}"\n\nArchitecture Spec from ${planner.name}:\n${res2.text}\n\nWrite clean, production-grade implementation code, API endpoints, and core logic (BUILD_V1).`,
+            fallbackGenerator: () =>
+              `### BUILD_V1 — Core Production Implementation\n\n\`\`\`typescript\nexport async function processSwarmPipeline(event: SwarmEvent) {\n  const lock = await redis.set(\`idem:\${event.id}\`, '1', 'EX', 86400, 'NX');\n  if (!lock) return { status: 'duplicate_skipped', id: event.id };\n\n  const enriched = await generateReleaseSummary(event.commits);\n  await db.changelog.insert({ projectId: event.projectId, markdown: enriched });\n  await broadcastToSubscribers(event.projectId, enriched);\n  return { status: 'shipped', id: event.id };\n}\n\`\`\`\n- **Endpoints**: \`POST /api/v1/webhooks/github\` & \`GET /api/v1/changelogs/stream\`.`
+          });
+
+          const tok3 = Math.round(res3.text.length * 0.36) + 340;
+          state.tokensCount += tok3;
+          state.artifacts.unshift({
+            stageTitle: 'Stage 3 • Core Engineering Build (BUILD_V1)',
+            agentName: builder.name,
+            agentRole: builder.role,
+            color: builder.primaryColor,
+            content: res3.text,
+            tokens: tok3,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isFinal: false
+          });
+          renderArtifacts();
+
+          moveAgent(builder, bDesk.seatX, bDesk.seatY, 'idle', 'Build pushed ⚡');
+          spawnPacket(builder, designer, 'BUILD_V1', builder.primaryColor);
+          addComm(builder.name, `Transmitted BUILD_V1 orb to ${designer.name} for QA & UX polish.`);
+
+          // STAGE 4: PIXEL (QA Audit, UX Polish & Executive Launch Brief)
+          setActivePipelineNode(4);
+          els.liveBannerText.textContent = `Stage 4/4: ${designer.name} running QA audit & UX polish...`;
+          const dDesk = DESKS[designer.deskId % DESKS.length];
+          moveAgent(designer, dDesk.seatX, dDesk.seatY, 'working', 'Polishing QA_PASS...');
+          spawnEmote(designer.x, designer.y - 34, '✨', '#ec4899');
+
+          const res4 = await callGeminiWithFallback({
+            systemPrompt: designer.personaPrompt,
+            userPrompt: `Mission Goal:\n"${prompt}"\n\nArchitecture:\n${res2.text}\n\nImplementation:\n${res3.text}\n\nRun a final QA & UX audit, highlight key polish improvements, and compile the executive-ready Final Launch Brief.`,
+            fallbackGenerator: () =>
+              `### QA_PASS ✓ — Final UX Polish & Executive Launch Brief\n\n- **QA Verification**: Idempotency guards, error boundaries, and responsive streaming states verified.\n- **UX & Copy Polish**: Added instant optimistic status badges, 1-click markdown copy, and clear empty-state onboarding.\n- **Release Verdict**: **APPROVED FOR PRODUCTION** — All 4 Swarm stages converged with zero blockers.`
+          });
+
+          const tok4 = Math.round(res4.text.length * 0.34) + 240;
+          state.tokensCount += tok4;
+          state.artifacts.unshift({
+            stageTitle: 'Final Deliverable • QA Audit & Launch Brief (QA_PASS ✓)',
+            agentName: designer.name,
+            agentRole: designer.role,
+            color: designer.primaryColor,
+            content: res4.text,
+            tokens: tok4,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isFinal: true
+          });
+          renderArtifacts();
+
+          spawnPacket(designer, planner, 'QA_PASS ✓', '#10b981');
+          moveAgent(designer, dDesk.seatX, dDesk.seatY, 'idle', 'Shipped! 🎉');
+          state.agents.forEach((a, idx) => {
+            setTimeout(() => triggerAgentJump(a, '🎉'), idx * 120);
+          });
+          sfx.fanfare();
+          state.shippedCount += 1;
+          addComm(designer.name, '✅ 4-Stage Swarm Mission complete! Final deliverable ready.');
+          showToast('🎉 4-Agent Swarm Mission Shipped!');
+        } finally {
+          state.isMissionRunning = false;
+          setActivePipelineNode(0);
+          els.btnLaunchMission.disabled = false;
+          els.btnCoffeeBreak.disabled = false;
+          els.btnStandup.disabled = false;
+          els.btnReturnDesks.disabled = false;
+          els.liveBanner.classList.remove('visible');
+          updateTelemetryAndHud();
+        }
+      }
+
+      // --------------------------------------------------------------------
+      // WALKIE-TALKIE 1-ON-1 DIRECT CHAT
+      // --------------------------------------------------------------------
+      function openWalkieTalkie(agentId) {
+        if (agentId) state.selectedAgentId = agentId;
+        const ag = getSelectedAgent();
+        if (!ag) return;
+        sfx.blip();
+        els.walkieTitle.textContent = `📻 CH-0${ag.deskId + 1}: ${ag.name}`;
+        els.walkieSub.textContent = `${ag.role} • Direct Radio`;
+        renderWalkieMessages();
+        els.walkieDrawer.classList.add('open');
+        els.walkieInput.focus();
+        updateTelemetryAndHud();
+      }
+
+      function renderWalkieMessages() {
+        const ag = getSelectedAgent();
+        const list = state.directChats[ag.id] || [];
+        if (list.length === 0) {
+          els.walkieMessages.innerHTML = `<div style="text-align:center;color:var(--text-muted);font-size:11px;padding:28px 12px;">Direct channel open with <strong>${escapeHtml(
+            ag.name
+          )}</strong>.<br/>Assign a quick micro-task, ask for code, or check status!</div>`;
+          return;
+        }
+        els.walkieMessages.innerHTML = list
+          .map((m) => `<div class="msg-bubble ${m.sender}">${escapeHtml(m.text)}</div>`)
+          .join('');
+        els.walkieMessages.scrollTop = els.walkieMessages.scrollHeight;
+      }
+
+      async function handleWalkieSubmit(e) {
+        e.preventDefault();
+        const text = els.walkieInput.value.trim();
+        if (!text || els.btnWalkieSend.disabled) return;
+
+        const ag = getSelectedAgent();
+        els.walkieInput.value = '';
+        if (!state.directChats[ag.id]) state.directChats[ag.id] = [];
+        state.directChats[ag.id].push({ sender: 'user', text });
+        renderWalkieMessages();
+        sfx.blip();
+
+        els.btnWalkieSend.disabled = true;
+        const prevStatus = ag.status;
+        ag.status = 'working';
+        ag.bubble = 'Replying on radio...';
+        updateTelemetryAndHud();
+
+        const res = await callGeminiWithFallback({
+          systemPrompt: `${ag.personaPrompt} Keep your walkie-talkie reply concise, sharp, and actionable.`,
+          userPrompt: text,
+          fallbackGenerator: () =>
+            `Roger that! As ${ag.role}, here is my recommendation for "${text}":\n1. Lock down the core interface contract first.\n2. Add automated validation & graceful fallbacks.\n3. Ready to execute across the full Swarm whenever you launch!`
+        });
+
+        state.directChats[ag.id].push({ sender: 'agent', text: res.text });
+        state.tokensCount += Math.round(res.text.length * 0.3) + 85;
+        ag.status = prevStatus === 'walking' ? 'idle' : prevStatus;
+        ag.bubble = 'Standing by ✓';
+        triggerAgentJump(ag, '💬');
+        els.btnWalkieSend.disabled = false;
+        renderWalkieMessages();
+        updateTelemetryAndHud();
+      }
+
+      // --------------------------------------------------------------------
+      // 16-BIT PIXEL ART CANVAS RENDERER (SNES / GBA CRAFT)
+      // --------------------------------------------------------------------
+      function pxRect(x, y, w, h, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+      }
+
+      function drawOfficeScene(now) {
+        const mood = LIGHTING_MODES[state.lightingIdx];
+
+        // 1. Rich Oak Hardwood Plank Floor with Woodgrain Seams
+        pxRect(0, 0, WORLD_W, WORLD_H, '#2a1f1b');
+        const plankW = 50;
+        const plankH = 24;
+        for (let r = 0; r < Math.ceil(WORLD_H / plankH); r++) {
+          const offset = (r % 2) * (plankW / 2);
+          for (let c = -1; c < Math.ceil(WORLD_W / plankW) + 1; c++) {
+            const x = c * plankW + offset;
+            const y = r * plankH;
+            const shade =
+              (r + c) % 3 === 0 ? '#3c2c24' : (r + c) % 2 === 0 ? '#35261f' : '#2f211b';
+            pxRect(x + 1, y + 1, plankW - 2, plankH - 2, shade);
+            // Subtle woodgrain highlight pixel
+            if ((r * 7 + c * 3) % 4 === 0) {
+              pxRect(x + 10, y + 8, 14, 2, '#46342b');
+            }
+          }
+        }
+
+        // Wall-to-floor ambient occlusion shadow strip
+        pxRect(0, 92, WORLD_W, 8, 'rgba(0,0,0,0.32)');
+
+        // 2. Textured Brick & Wainscoting Top Studio Wall
+        pxRect(0, 0, WORLD_W, 92, '#1c2436');
+        // Subtle pixel brick pattern on upper wall
+        for (let by = 6; by < 72; by += 10) {
+          const bOff = ((by / 10) % 2) * 14;
+          for (let bx = 0; bx < WORLD_W; bx += 28) {
+            pxRect(bx + bOff, by, 26, 8, '#212b40');
+          }
+        }
+        // Wood wainscoting & molding
+        pxRect(0, 74, WORLD_W, 14, '#523b2f');
+        pxRect(0, 74, WORLD_W, 3, '#6e5040');
+        pxRect(0, 88, WORLD_W, 4, '#140f0c');
+
+        // 3. Panoramic City Skyline Windows with Drifting Clouds & Sunbeams
+        [46, 680].forEach((wx) => {
+          pxRect(wx, 12, 118, 56, '#0f172a');
+          pxRect(wx + 4, 16, 110, 48, mood.skyTop);
+          pxRect(wx + 4, 38, 110, 26, mood.skyBottom);
+
+          // Drifting pixel clouds inside window clip
+          state.clouds.forEach((cl) => {
+            if (cl.x >= wx - 20 && cl.x <= wx + 115) {
+              const cx = Math.max(wx + 6, Math.min(wx + 110 - cl.w, cl.x));
+              pxRect(cx, cl.y, cl.w, 6, 'rgba(255,255,255,0.75)');
+              pxRect(cx + 4, cl.y - 3, cl.w - 8, 4, 'rgba(255,255,255,0.85)');
+            }
+          });
+
+          // Pixel Skyline Silhouettes
+          pxRect(wx + 10, 32, 16, 32, '#1e293b');
+          pxRect(wx + 30, 24, 20, 40, '#0f172a');
+          pxRect(wx + 54, 35, 16, 29, '#1e293b');
+          pxRect(wx + 76, 26, 22, 38, '#0f172a');
+          // Lit skyscraper windows at sunset/night
+          if (state.lightingIdx > 0) {
+            pxRect(wx + 34, 30, 3, 3, '#fde047');
+            pxRect(wx + 42, 36, 3, 3, '#fde047');
+            pxRect(wx + 82, 32, 3, 3, '#38bdf8');
+            pxRect(wx + 88, 42, 3, 3, '#fde047');
+          }
+
+          // Mullions
+          pxRect(wx + 57, 16, 4, 48, '#1c2436');
+          pxRect(wx + 4, 39, 110, 4, '#1c2436');
+
+          // Diagonal Atmospheric Sunbeam onto floor
+          ctx.fillStyle = mood.sunbeamColor;
+          ctx.beginPath();
+          ctx.moveTo(wx + 4, 68);
+          ctx.lineTo(wx + 114, 68);
+          ctx.lineTo(wx + 155, 220);
+          ctx.lineTo(wx + 35, 220);
+          ctx.closePath();
+          ctx.fill();
+        });
+
+        // 4. Framed Pixel Art Poster on Wall (Left of Whiteboard)
+        pxRect(268, 18, 42, 34, '#78350f');
+        pxRect(271, 21, 36, 28, '#0f172a');
+        pxRect(276, 27, 10, 10, '#f59e0b');
+        pxRect(290, 33, 12, 12, '#10b981');
+
+        // 5. Executive Magnetic Whiteboard & War Room Rug
+        const wbX = 340;
+        const wbY = 12;
+        pxRect(wbX - 4, wbY - 2, 228, 68, '#475569');
+        pxRect(wbX, wbY, 220, 60, '#f8fafc');
+
+        // Sticky Notes & 4-Stage Diagram on Whiteboard
+        pxRect(wbX + 12, wbY + 10, 36, 22, '#bae6fd'); // Scout
+        pxRect(wbX + 16, wbY + 14, 26, 3, '#0284c7');
+        pxRect(wbX + 16, wbY + 20, 18, 3, '#0284c7');
+
+        pxRect(wbX + 52, wbY + 20, 12, 3, '#64748b');
+
+        pxRect(wbX + 68, wbY + 10, 36, 22, '#fde68a'); // Claude
+        pxRect(wbX + 72, wbY + 14, 26, 3, '#d97706');
+        pxRect(wbX + 72, wbY + 20, 20, 3, '#d97706');
+
+        pxRect(wbX + 108, wbY + 20, 12, 3, '#64748b');
+
+        pxRect(wbX + 124, wbY + 10, 36, 22, '#bbf7d0'); // Codex
+        pxRect(wbX + 128, wbY + 14, 26, 3, '#059669');
+        pxRect(wbX + 128, wbY + 20, 22, 3, '#059669');
+
+        pxRect(wbX + 164, wbY + 20, 10, 3, '#64748b');
+
+        pxRect(wbX + 177, wbY + 10, 32, 22, '#fbcfe8'); // Pixel
+        pxRect(wbX + 181, wbY + 14, 22, 3, '#db2777');
+        pxRect(wbX + 181, wbY + 20, 18, 3, '#db2777');
+
+        // Live Progress Gauge on Whiteboard
+        const gaugeW = state.isMissionRunning ? 90 + Math.sin(now * 0.008) * 65 : 54;
+        pxRect(wbX + 12, wbY + 42, 196, 8, '#e2e8f0');
+        pxRect(wbX + 12, wbY + 42, gaugeW, 8, state.isMissionRunning ? '#10b981' : '#94a3b8');
+
+        // Marker Tray
+        pxRect(wbX + 46, wbY + 60, 128, 5, '#334155');
+        pxRect(wbX + 58, wbY + 58, 12, 3, '#ef4444');
+        pxRect(wbX + 76, wbY + 58, 12, 3, '#3b82f6');
+        pxRect(wbX + 94, wbY + 58, 12, 3, '#10b981');
+
+        // War Room Woven Area Rug
+        pxRect(334, 134, 232, 98, '#1e293b');
+        pxRect(340, 140, 220, 86, '#28354d');
+        pxRect(344, 144, 212, 2, '#f59e0b');
+        pxRect(344, 220, 212, 2, '#f59e0b');
+
+        // 6. Espresso & Snack Bar + Water Cooler + Mini-Fridge (Top Left)
+        // Mini-Fridge with Magnets
+        pxRect(18, 86, 30, 66, '#cbd5e1');
+        pxRect(20, 88, 26, 22, '#e2e8f0');
+        pxRect(20, 113, 26, 37, '#e2e8f0');
+        pxRect(42, 96, 2, 8, '#64748b');
+        pxRect(42, 120, 2, 12, '#64748b');
+        pxRect(25, 94, 4, 4, '#ef4444'); // Magnet
+        pxRect(31, 98, 4, 4, '#3b82f6'); // Magnet
+
+        // Countertop & Espresso Machine
+        pxRect(52, 94, 148, 60, '#4a3525');
+        pxRect(50, 90, 152, 14, '#855e42');
+        pxRect(84, 62, 46, 36, '#cbd5e1');
+        pxRect(88, 66, 38, 13, '#1e293b');
+        const ledOn = Math.floor(now / 420) % 2 === 0;
+        pxRect(93, 70, 4, 4, ledOn ? '#22c55e' : '#15803d');
+        pxRect(101, 70, 4, 4, '#f59e0b');
+        pxRect(99, 83, 16, 13, '#0f172a');
+        pxRect(101, 88, 12, 7, '#78350f');
+
+        // Animated Steam Wisps rising from Espresso Machine
+        state.steamWisps.forEach((st) => {
+          ctx.globalAlpha = st.alpha;
+          pxRect(st.x, st.y, 4, 4, '#f8fafc');
+        });
+        ctx.globalAlpha = 1;
+
+        // Mug Rack & Pink Donut Box
+        pxRect(142, 80, 14, 12, '#f8fafc');
+        pxRect(162, 82, 30, 12, '#f472b6');
+
+        // Office Water Cooler with Blue Jug
+        pxRect(206, 98, 24, 54, '#e2e8f0');
+        pxRect(209, 72, 18, 26, '#38bdf8');
+        pxRect(212, 75, 5, 18, '#bae6fd');
+        pxRect(212, 114, 4, 5, '#3b82f6');
+        pxRect(220, 114, 4, 5, '#ef4444');
+
+        // Breakroom Checkerboard Tile Mat
+        for (let r = 0; r < 3; r++) {
+          for (let c = 0; c < 6; c++) {
+            pxRect(
+              54 + c * 24,
+              158 + r * 18,
+              24,
+              18,
+              (r + c) % 2 === 0 ? '#334155' : '#1e293b'
+            );
+          }
+        }
+
+        // 7. Swarm Ops Corner: LED Ticker Sign + Dual Server Racks + Floor Cable Duct
+        // Wall-Mounted LED Ticker Sign
+        pxRect(584, 22, 84, 22, '#090d16');
+        pxRect(586, 24, 80, 18, '#0f172a');
+        ctx.font = 'bold 8px "JetBrains Mono", monospace';
+        ctx.fillStyle = state.isMissionRunning ? '#fbbf24' : '#10b981';
+        ctx.textAlign = 'center';
+        ctx.fillText(state.isMissionRunning ? 'SWARM: BUSY' : 'SWARM: ONLINE', 626, 36);
+
+        // Dual Blinking Server Racks
+        [716, 788].forEach((rx, rackIdx) => {
+          pxRect(rx, 62, 66, 90, '#090d16');
+          pxRect(rx + 5, 67, 56, 80, '#1e293b');
+          for (let b = 0; b < 5; b++) {
+            const by = 73 + b * 14;
+            pxRect(rx + 9, by, 48, 10, '#090d16');
+            const b1 = Math.sin(now * 0.011 + b + rackIdx) > 0;
+            const b2 = Math.cos(now * 0.016 + b * 2) > 0;
+            pxRect(rx + 14, by + 3, 4, 4, b1 ? '#10b981' : '#064e3b');
+            pxRect(rx + 22, by + 3, 4, 4, b2 ? '#38bdf8' : '#0c4a6e');
+            pxRect(rx + 30, by + 3, 4, 4, state.isMissionRunning && b1 ? '#f59e0b' : '#334155');
+          }
+        });
+        // Floor Cable Duct
+        pxRect(745, 152, 78, 6, '#334155');
+        pxRect(745, 154, 78, 2, '#f59e0b');
+
+        // 8. Cozy Lounge & Retro Arcade Corner (Bottom Left & Bottom Right)
+        // Cozy Sofa & Coffee Table (Bottom Left)
+        pxRect(28, 438, 86, 36, '#4f46e5');
+        pxRect(32, 442, 78, 20, '#6366f1');
+        pxRect(24, 448, 10, 26, '#3730a3');
+        pxRect(108, 448, 10, 26, '#3730a3');
+        // Low Coffee Table with Magazine
+        pxRect(42, 484, 58, 22, '#78350f');
+        pxRect(44, 486, 54, 16, '#92400e');
+        pxRect(56, 490, 14, 9, '#f8fafc');
+
+        // Retro Arcade Cabinet (Bottom Right)
+        pxRect(822, 396, 48, 76, '#1e1b4b');
+        pxRect(826, 400, 40, 10, '#f43f5e'); // Marquee
+        pxRect(828, 414, 36, 24, '#090d16'); // CRT Screen
+        const crtPulse = Math.floor(now / 300) % 2 === 0;
+        pxRect(834, 420, 10, 10, crtPulse ? '#22c55e' : '#38bdf8');
+        pxRect(850, 424, 8, 6, '#fbbf24');
+        pxRect(824, 440, 44, 8, '#312e81'); // Control deck
+        pxRect(834, 437, 3, 4, '#ef4444'); // Joystick
+
+        // Potted Monstera & Bonsai Plants
+        [
+          { x: 248, y: 106 },
+          { x: 685, y: 106 },
+          { x: 42, y: 534 },
+          { x: 848, y: 534 }
+        ].forEach((p) => {
+          pxRect(p.x - 10, p.y, 20, 16, '#c2410c');
+          pxRect(p.x - 12, p.y - 3, 24, 5, '#ea580c');
+          pxRect(p.x - 14, p.y - 16, 12, 13, '#15803d');
+          pxRect(p.x + 2, p.y - 18, 12, 15, '#16a34a');
+          pxRect(p.x - 7, p.y - 24, 14, 14, '#22c55e');
+        });
+
+        // 9. Front Glass Entrance Doors & Checkered Welcome Mat (Bottom Center)
+        pxRect(402, 542, 96, 34, '#1e293b');
+        for (let r = 0; r < 2; r++) {
+          for (let c = 0; c < 6; c++) {
+            pxRect(
+              406 + c * 14.5,
+              546 + r * 13,
+              14.5,
+              13,
+              (r + c) % 2 === 0 ? '#f8fafc' : '#334155'
+            );
+          }
+        }
+      }
+
+      function drawDeskAndMonitors(desk, isOccupied, isWorking, now) {
+        const { x, y, monitorColor } = desk;
+        const mood = LIGHTING_MODES[state.lightingIdx];
+
+        // Ambient occlusion shadow
+        pxRect(x - 56, y + 16, 112, 11, 'rgba(0,0,0,0.42)');
+        // Metal Legs + Glowing PC Tower under right side of desk
+        pxRect(x - 50, y + 6, 8, 16, '#1e293b');
+        pxRect(x + 42, y + 6, 8, 16, '#1e293b');
+        pxRect(x + 24, y + 4, 16, 18, '#0f172a');
+        pxRect(x + 27, y + 7, 3, 12, isWorking ? monitorColor : '#334155');
+
+        // Oak Desktop
+        pxRect(x - 56, y - 14, 112, 24, '#6b4c35');
+        pxRect(x - 54, y - 12, 108, 18, '#856044');
+
+        // Warm Desk Lamp on Left Corner casting pool of light
+        pxRect(x - 48, y - 18, 10, 4, '#334155');
+        pxRect(x - 45, y - 32, 3, 14, '#64748b');
+        pxRect(x - 49, y - 36, 14, 6, '#fbbf24');
+        ctx.fillStyle = `rgba(253, 224, 71, ${mood.lampGlow})`;
+        ctx.beginPath();
+        ctx.arc(x - 36, y - 14, 28, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Dual Monitors on Articulated Arm
+        pxRect(x - 16, y - 20, 10, 8, '#334155');
+        pxRect(x - 34, y - 45, 44, 27, '#0f172a');
+        pxRect(
+          x - 31,
+          y - 42,
+          38,
+          21,
+          isWorking ? monitorColor : isOccupied ? '#1e293b' : '#090d16'
+        );
+
+        pxRect(x + 20, y - 19, 8, 7, '#334155');
+        pxRect(x + 12, y - 42, 28, 24, '#0f172a');
+        pxRect(x + 15, y - 39, 22, 18, isWorking ? '#0ea5e9' : '#090d16');
+
+        // Animated Code Lines when Working
+        if (isWorking) {
+          const shift = Math.floor(now / 160) % 4;
+          for (let line = 0; line < 4; line++) {
+            const lw = 12 + ((line + shift) % 3) * 8;
+            pxRect(x - 27, y - 38 + line * 4, lw, 2, '#ffffff');
+          }
+          pxRect(x + 18, y - 34, 14, 2, '#bae6fd');
+          pxRect(x + 18, y - 29, 10, 2, '#bae6fd');
+        } else if (isOccupied) {
+          pxRect(x - 25, y - 34, 20, 2, monitorColor);
+          pxRect(x - 25, y - 29, 13, 2, '#94a3b8');
+        }
+
+        // Mechanical Keyboard & Coffee Mug
+        pxRect(x - 18, y - 6, 32, 7, '#334155');
+        pxRect(x - 16, y - 5, 28, 2, '#94a3b8');
+        pxRect(x + 42, y - 8, 8, 8, '#f8fafc');
+        pxRect(x + 44, y - 6, 4, 4, '#78350f');
+      }
+
+      function drawChair(desk) {
+        const { seatX, seatY } = desk;
+        pxRect(seatX - 15, seatY - 4, 30, 16, '#1e293b');
+        pxRect(seatX - 13, seatY + 6, 26, 10, '#334155');
+      }
+
+      function drawAgent(ag, isSelected, now) {
+        const px = Math.round(ag.x);
+        const py = Math.round(ag.y + (ag.jumpOffset || 0));
+        const isWalking = ag.status === 'walking';
+        const isWorking = ag.status === 'working';
+        const isCoffee = ag.status === 'coffee';
+
+        const bobY = isWalking
+          ? Math.abs(Math.sin(ag.frame * 0.28)) * -4
+          : isWorking
+          ? Math.sin(now * 0.026) * 1.5
+          : Math.sin(now * 0.005 + ag.id.charCodeAt(0)) * 1.5;
+
+        // Selection Ring on Floor
+        if (isSelected) {
+          ctx.strokeStyle = '#fbbf24';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.ellipse(px, Math.round(ag.y) + 14, 19, 8, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Floor Shadow (anchored to ground Y)
+        pxRect(px - 10, Math.round(ag.y) + 11, 20, 6, 'rgba(0,0,0,0.44)');
+
+        // Shoes & Legs (4-frame walk stride)
+        const lLeg = isWalking ? Math.sin(ag.frame * 0.28) * 3.5 : 0;
+        const rLeg = isWalking ? -Math.sin(ag.frame * 0.28) * 3.5 : 0;
+        pxRect(px - 7, py + 4 + lLeg, 5, 9, '#1e293b');
+        pxRect(px + 2, py + 4 + rLeg, 5, 9, '#1e293b');
+        pxRect(px - 8, py + 11 + lLeg, 6, 3, '#0f172a');
+        pxRect(px + 2, py + 11 + rLeg, 6, 3, '#0f172a');
+
+        // Outfit Torso (Cardigan / Hoodie / Jacket)
+        const bodyY = py - 10 + bobY;
+        pxRect(px - 10, bodyY, 20, 15, ag.primaryColor);
+        pxRect(px - 3, bodyY + 3, 6, 10, ag.secondaryColor);
+
+        // Arms (bouncing typing motion when working)
+        const lArm = isWorking ? (Math.floor(now / 100) % 2 === 0 ? -2.5 : 0) : 0;
+        const rArm = isWorking ? (Math.floor(now / 100) % 2 === 1 ? -2.5 : 0) : 0;
+        pxRect(px - 14, bodyY + 2 + lArm, 4, 10, ag.primaryColor);
+        pxRect(px + 10, bodyY + 2 + rArm, 4, 10, ag.primaryColor);
+
+        // Sipping Coffee Mug during Coffee Break
+        if (isCoffee) {
+          const sipY = Math.sin(now * 0.008) > 0.25 ? -5 : 0;
+          pxRect(px + 11, bodyY + 3 + sipY, 6, 6, '#f8fafc');
+          pxRect(px + 12, bodyY + 4 + sipY, 4, 2, '#78350f');
+        }
+
+        // Head
+        const headY = bodyY - 14;
+        pxRect(px - 9, headY, 18, 14, ag.skinColor);
+
+        // Shaded Hair
+        pxRect(px - 10, headY - 3, 20, 6, ag.hairColor);
+        pxRect(px - 10, headY, 3, 7, ag.hairColor);
+        pxRect(px + 7, headY, 3, 7, ag.hairColor);
+
+        // Expressive Eyes that look toward movement direction & blink
+        const lookShift = ag.facing === 'left' ? -1 : ag.facing === 'right' ? 1 : 0;
+        const seed = ag.id.charCodeAt(0) * 310;
+        const blink = Math.floor((now + seed) / 3200) % 10 === 0 && (now + seed) % 3200 < 140;
+        if (!blink) {
+          pxRect(px - 5 + lookShift, headY + 6, 3, 3, '#0f172a');
+          pxRect(px + 2 + lookShift, headY + 6, 3, 3, '#0f172a');
+        } else {
+          pxRect(px - 5 + lookShift, headY + 7, 3, 1, '#0f172a');
+          pxRect(px + 2 + lookShift, headY + 7, 3, 1, '#0f172a');
+        }
+
+        // Distinct Accessories
+        if (ag.accessory === 'glasses') {
+          pxRect(px - 7, headY + 5, 6, 5, 'rgba(255,255,255,0.42)');
+          pxRect(px + 1, headY + 5, 6, 5, 'rgba(255,255,255,0.42)');
+          pxRect(px - 1, headY + 7, 2, 2, '#0f172a');
+        } else if (ag.accessory === 'headset') {
+          pxRect(px - 11, headY + 3, 3, 7, '#06b6d4');
+          pxRect(px + 8, headY + 3, 3, 7, '#06b6d4');
+          pxRect(px + 6, headY + 10, 5, 2, '#38bdf8');
+        } else if (ag.accessory === 'cap') {
+          pxRect(px - 10, headY - 4, 20, 5, '#0284c7');
+          pxRect(px - 7, headY + 1, 16, 3, '#38bdf8');
+        } else if (ag.accessory === 'beret') {
+          pxRect(px - 8, headY - 6, 18, 5, '#9333ea');
+        } else if (ag.accessory === 'crown') {
+          pxRect(px - 8, headY - 7, 16, 5, '#fbbf24');
+          pxRect(px - 8, headY - 9, 3, 2, '#fde047');
+          pxRect(px - 1, headY - 9, 3, 2, '#fde047');
+          pxRect(px + 5, headY - 9, 3, 2, '#fde047');
+        }
+
+        // Crisp Nameplate Pill
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
+        const nw = ctx.measureText(ag.name).width + 10;
+        pxRect(px - nw / 2, Math.round(ag.y) + 18, nw, 14, 'rgba(9, 13, 22, 0.92)');
+        ctx.fillStyle = isSelected ? '#fbbf24' : '#f8fafc';
+        ctx.textAlign = 'center';
+        ctx.fillText(ag.name, px, Math.round(ag.y) + 28);
+
+        // Floating Pixel Speech Bubble with Tail Pointer
+        if (ag.bubble) {
+          ctx.font = '600 10px "Inter", sans-serif';
+          const bw = Math.min(188, Math.max(66, ctx.measureText(ag.bubble).width + 16));
+          const bh = 20;
+          const bx = Math.max(8, Math.min(WORLD_W - bw - 8, px - bw / 2));
+          const by = headY - 29 + Math.sin(now * 0.006) * 1.5;
+
+          pxRect(bx - 1, by - 1, bw + 2, bh + 2, isWorking ? ag.primaryColor : '#475569');
+          pxRect(bx, by, bw, bh, '#0f172a');
+          pxRect(px - 3, by + bh, 6, 3, '#0f172a');
+
+          ctx.fillStyle = '#f8fafc';
+          ctx.textAlign = 'center';
+          ctx.fillText(ag.bubble, bx + bw / 2, by + 13, bw - 8);
+        }
+      }
+
+      function drawDataPackets(now) {
+        state.packets.forEach((pkt) => {
+          const cx = pkt.fromX + (pkt.toX - pkt.fromX) * pkt.progress;
+          const arcY = Math.sin(pkt.progress * Math.PI) * -42;
+          const cy = pkt.fromY + (pkt.toY - pkt.fromY) * pkt.progress + arcY;
+
+          for (let t = 1; t <= 5; t++) {
+            const tp = Math.max(0, pkt.progress - t * 0.04);
+            const tx = pkt.fromX + (pkt.toX - pkt.fromX) * tp;
+            const ty = pkt.fromY + (pkt.toY - pkt.fromY) * tp + Math.sin(tp * Math.PI) * -42;
+            ctx.globalAlpha = 0.65 - t * 0.11;
+            pxRect(tx - 3, ty - 3, 6, 6, pkt.color);
+          }
+          ctx.globalAlpha = 1;
+
+          const r = 6.5 + Math.sin(now * 0.022) * 2;
+          ctx.fillStyle = pkt.color;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (pkt.label) {
+            ctx.font = 'bold 9px "JetBrains Mono", monospace';
+            const lw = ctx.measureText(pkt.label).width + 8;
+            pxRect(cx - lw / 2, cy - 21, lw, 13, 'rgba(9, 13, 22, 0.94)');
+            ctx.fillStyle = '#fbbf24';
+            ctx.textAlign = 'center';
+            ctx.fillText(pkt.label, cx, cy - 12);
+          }
+        });
+      }
+
+      function drawEmotes() {
+        state.emotes.forEach((em) => {
+          ctx.globalAlpha = Math.max(0, em.life);
+          ctx.font = 'bold 12px "JetBrains Mono", monospace';
+          ctx.fillStyle = em.color;
+          ctx.textAlign = 'center';
+          ctx.fillText(em.text, em.x, em.y);
+        });
+        ctx.globalAlpha = 1;
+      }
+
+      // --------------------------------------------------------------------
+      // 60FPS ANIMATION LOOP & CANVAS INTERACTION
+      // --------------------------------------------------------------------
+      let lastFrameTime = performance.now();
+      let stepSoundTimer = 0;
+
+      function tick(now) {
+        const dt = Math.min(50, now - lastFrameTime);
+        lastFrameTime = now;
+
+        // Drift window clouds
+        state.clouds.forEach((cl) => {
+          cl.x += cl.speed * dt;
+          if (cl.x > 165 && cl.x < 680) cl.x = 680;
+          if (cl.x > 800) cl.x = 46;
+        });
+
+        // Spawn & update espresso steam wisps
+        if (Math.random() < 0.08) {
+          state.steamWisps.push({
+            x: 102 + (Math.random() - 0.5) * 10,
+            y: 62,
+            alpha: 0.75
+          });
+        }
+        state.steamWisps = state.steamWisps
+          .map((s) => ({ x: s.x + Math.sin(now * 0.005) * 0.15, y: s.y - 0.025 * dt, alpha: s.alpha - 0.0009 * dt }))
+          .filter((s) => s.alpha > 0);
+
+        // Update floating emotes
+        state.emotes = state.emotes
+          .map((e) => ({ ...e, y: e.y - 0.03 * dt, life: e.life - 0.0012 * dt }))
+          .filter((e) => e.life > 0);
+
+        let statusChanged = false;
+        let anyWalking = false;
+
+        state.agents.forEach((ag) => {
+          // Decay celebratory jump
+          if (ag.jumpOffset < 0) {
+            ag.jumpOffset = Math.min(0, ag.jumpOffset + 0.055 * dt);
+          }
+
+          const dx = ag.targetX - ag.x;
+          const dy = ag.targetY - ag.y;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist > 2.5) {
+            anyWalking = true;
+            const step = Math.min(dist, 0.145 * dt * state.simSpeed);
+            ag.x += (dx / dist) * step;
+            ag.y += (dy / dist) * step;
+            ag.status = 'walking';
+            ag.frame += 0.18 * dt * state.simSpeed;
+            if (Math.abs(dx) > 1.5) {
+              ag.facing = dx < 0 ? 'left' : 'right';
+            }
+          } else if (ag.status === 'walking') {
+            ag.x = ag.targetX;
+            ag.y = ag.targetY;
+            ag.facing = 'down';
+            ag.status = ag.pendingStatus || 'idle';
+            statusChanged = true;
+          }
+        });
+
+        if (anyWalking) {
+          stepSoundTimer += dt;
+          if (stepSoundTimer > 240) {
+            stepSoundTimer = 0;
+            sfx.step();
+          }
+        }
+
+        if (statusChanged) {
+          updateTelemetryAndHud();
+        }
+
+        // Update flying data orbs
+        state.packets = state.packets
+          .map((p) => ({ ...p, progress: p.progress + 0.00145 * dt * state.simSpeed }))
+          .filter((p) => p.progress < 1);
+
+        // Render Scene
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, WORLD_W, WORLD_H);
+        drawOfficeScene(now);
+
+        // Y-Sort chairs, desks, and agents for proper 16-bit depth overlap
+        const items = [];
+        DESKS.forEach((desk) => {
+          const occ = state.agents.find(
+            (a) => a.deskId === desk.id && Math.hypot(a.x - desk.seatX, a.y - desk.seatY) < 16
+          );
+          items.push({
+            type: 'desk',
+            y: desk.y,
+            desk,
+            occupied: Boolean(occ),
+            working: occ?.status === 'working'
+          });
+          items.push({ type: 'chair', y: desk.seatY - 2, desk });
+        });
+
+        state.agents.forEach((ag) => {
+          items.push({ type: 'agent', y: ag.y, ag });
+        });
+
+        items.sort((a, b) => a.y - b.y);
+        items.forEach((it) => {
+          if (it.type === 'desk') drawDeskAndMonitors(it.desk, it.occupied, it.working, now);
+          else if (it.type === 'chair') drawChair(it.desk);
+          else drawAgent(it.ag, it.ag.id === state.selectedAgentId, now);
+        });
+
+        drawDataPackets(now);
+        drawEmotes();
+
+        // Ambient Lighting Overlay (Sunset / Midnight Lo-Fi)
+        const mood = LIGHTING_MODES[state.lightingIdx];
+        if (mood.ambientTint) {
+          pxRect(0, 0, WORLD_W, WORLD_H, mood.ambientTint);
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      // Canvas Click Handler
+      canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const cx = (e.clientX - rect.left) * (WORLD_W / rect.width);
+        const cy = (e.clientY - rect.top) * (WORLD_H / rect.height);
+
+        // 1. Clicked on an Agent?
+        const hitAgent = [...state.agents]
+          .reverse()
+          .find((a) => Math.abs(cx - a.x) < 22 && cy >= a.y - 34 && cy <= a.y + 24);
+
+        if (hitAgent) {
+          state.selectedAgentId = hitAgent.id;
+          openWalkieTalkie(hitAgent.id);
+          return;
+        }
+
+        const sel = getSelectedAgent();
+        if (!sel || state.isMissionRunning) return;
+
+        // 2. Clicked on Espresso Bar / Water Cooler?
+        if (cx >= 18 && cx <= 230 && cy >= 62 && cy <= 185) {
+          sfx.blip();
+          moveAgent(sel, 130, 188, 'coffee', 'Espresso run! ☕');
+          addComm('User', `Sent ${sel.name} to the Espresso & Snack Bar.`);
+          updateTelemetryAndHud();
+          return;
+        }
+
+        // 3. Clicked on Whiteboard?
+        if (cx >= 336 && cx <= 570 && cy >= 12 && cy <= 115) {
+          sfx.blip();
+          moveAgent(sel, WAYPOINTS.whiteboard.x, WAYPOINTS.whiteboard.y + 34, 'meeting', 'Mapping architecture 💡');
+          addComm('User', `Sent ${sel.name} to the War Room Whiteboard.`);
+          updateTelemetryAndHud();
+          return;
+        }
+
+        // 4. Clicked on Retro Arcade Cabinet?
+        if (cx >= 815 && cx <= 875 && cy >= 390 && cy <= 480) {
+          sfx.blip();
+          moveAgent(sel, WAYPOINTS.loungeArcade.x - 18, WAYPOINTS.loungeArcade.y + 10, 'idle', 'High score! 🕹️');
+          spawnEmote(845, 390, '+1UP', '#22c55e');
+          addComm('User', `${sel.name} took a quick break at the Retro Arcade!`);
+          updateTelemetryAndHud();
+          return;
+        }
+
+        // 5. Walk selected agent to clicked floor point
+        if (cy > 110 && cy < 545) {
+          sfx.blip();
+          moveAgent(sel, cx, cy, 'idle', 'On my way!');
+          updateTelemetryAndHud();
+        }
+      });
+
+      // Ambient idle chatter loop
+      setInterval(() => {
+        if (state.isMissionRunning) return;
+        let changed = false;
+        state.agents.forEach((ag) => {
+          if (ag.status === 'idle' && Math.random() < 0.35) {
+            ag.bubble = IDLE_THOUGHTS[Math.floor(Math.random() * IDLE_THOUGHTS.length)];
+            changed = true;
+          }
+        });
+        if (changed) updateTelemetryAndHud();
+      }, 4500);
+
+      // --------------------------------------------------------------------
+      // EVENT LISTENERS & MODAL / DRAWER WIRING
+      // --------------------------------------------------------------------
+      els.tabBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          sfx.blip();
+          switchTab(btn.dataset.tab);
+        });
+      });
+
+      els.btnLighting.addEventListener('click', () => {
+        state.lightingIdx = (state.lightingIdx + 1) % LIGHTING_MODES.length;
+        const mood = LIGHTING_MODES[state.lightingIdx];
+        els.btnLighting.textContent = mood.label;
+        els.canvasMoodBadge.textContent = mood.badge;
+        sfx.blip();
+        showToast(`Lighting mode: ${mood.badge}`);
+      });
+
+      els.btnSound.addEventListener('click', () => {
+        sfx.enabled = !sfx.enabled;
+        els.btnSound.textContent = sfx.enabled ? '🔊 SFX' : '🔇 SFX';
+        if (sfx.enabled) sfx.blip();
+        showToast(sfx.enabled ? 'Retro Synth SFX Enabled' : 'Retro Synth SFX Muted');
+      });
+
+      els.btnSpeed.addEventListener('click', () => {
+        state.simSpeed = state.simSpeed === 1 ? 2 : 1;
+        els.btnSpeed.textContent = `⚡ ${state.simSpeed}x`;
+        sfx.blip();
+        showToast(`Simulation speed: ${state.simSpeed}x`);
+      });
+
+      els.btnFocusMission.addEventListener('click', () => {
+        sfx.blip();
+        switchTab('mission');
+        els.missionInput.focus();
+      });
+
+      els.btnCoffeeBreak.addEventListener('click', triggerCoffeeBreak);
+      els.btnStandup.addEventListener('click', triggerAllHandsStandup);
+      els.btnReturnDesks.addEventListener('click', returnAllToDesks);
+      els.btnLaunchMission.addEventListener('click', launchSwarmMission);
+      els.btnOpenWalkie.addEventListener('click', () => openWalkieTalkie());
+      els.btnCloseWalkie.addEventListener('click', () => els.walkieDrawer.classList.remove('open'));
+      els.walkieForm.addEventListener('submit', handleWalkieSubmit);
+
+      // Delegated clicks for Roster & Presets & Artifacts
+      document.addEventListener('click', (e) => {
+        const selBtn = e.target.closest('[data-select-agent]');
+        if (selBtn) {
+          state.selectedAgentId = selBtn.dataset.selectAgent;
+          sfx.blip();
+          updateTelemetryAndHud();
+        }
+
+        const walkieBtn = e.target.closest('[data-walkie-agent]');
+        if (walkieBtn) {
+          e.stopPropagation();
+          openWalkieTalkie(walkieBtn.dataset.walkieAgent);
+        }
+
+        const presetBtn = e.target.closest('[data-preset-idx]');
+        if (presetBtn) {
+          const idx = Number(presetBtn.dataset.presetIdx);
+          if (PRESETS[idx]) {
+            els.missionInput.value = PRESETS[idx].prompt;
+            sfx.blip();
+            showToast(`Loaded preset: ${PRESETS[idx].title}`);
+          }
+        }
+
+        const copyBtn = e.target.closest('[data-copy-artifact]');
+        if (copyBtn) {
+          const idx = Number(copyBtn.dataset.copyArtifact);
+          const art = state.artifacts[idx];
+          if (art) {
+            navigator.clipboard.writeText(art.content);
+            sfx.blip();
+            showToast('Copied deliverable markdown!');
+          }
+        }
+      });
+
+      // Export & Clear Artifacts
+      els.btnDownloadAll.addEventListener('click', () => {
+        if (state.artifacts.length === 0) return;
+        const md = state.artifacts
+          .slice()
+          .reverse()
+          .map(
+            (a) =>
+              `# ${a.stageTitle}\n**Agent**: ${a.agentName} (${a.agentRole}) | **Time**: ${a.time}\n\n${a.content}`
+          )
+          .join('\n\n---\n\n');
+        const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `agenthq-swarm-deliverable-${Date.now()}.md`;
+        link.click();
+        URL.revokeObjectURL(url);
+        sfx.blip();
+        showToast('Exported complete .MD package!');
+      });
+
+      els.btnClearArtifacts.addEventListener('click', () => {
+        state.artifacts = [];
+        renderArtifacts();
+      });
+
+      // Hire Agent Modal Setup
+      function openHireModal() {
+        if (state.agents.length >= 6) return;
+        sfx.blip();
+        els.hireModal.classList.add('open');
+        els.hireName.focus();
+      }
+
+      els.btnOpenHire.addEventListener('click', openHireModal);
+      els.btnHireFromTab.addEventListener('click', openHireModal);
+      els.btnCloseHire.addEventListener('click', () => els.hireModal.classList.remove('open'));
+      els.btnCancelHire.addEventListener('click', () => els.hireModal.classList.remove('open'));
+
+      els.colorSwatches.innerHTML = SWATCH_COLORS.map(
+        (c, i) =>
+          `<button type="button" class="swatch-btn ${i === 0 ? 'selected' : ''}" data-swatch="${c}" style="background:${c};"></button>`
+      ).join('');
+
+      els.colorSwatches.addEventListener('click', (e) => {
+        const sw = e.target.closest('[data-swatch]');
+        if (!sw) return;
+        state.selectedSwatch = sw.dataset.swatch;
+        els.colorSwatches
+          .querySelectorAll('.swatch-btn')
+          .forEach((b) =>
+            b.classList.toggle('selected', b.dataset.swatch === state.selectedSwatch)
+          );
+      });
+
+      els.hireForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (state.agents.length >= 6) return;
+        const name = els.hireName.value.trim();
+        if (!name) return;
+
+        const usedDesks = new Set(state.agents.map((a) => a.deskId));
+        let freeDesk = 0;
+        for (let i = 0; i < DESKS.length; i++) {
+          if (!usedDesks.has(i)) {
+            freeDesk = i;
+            break;
+          }
+        }
+        const desk = DESKS[freeDesk];
+        const newId = `agent-${Date.now()}`;
+
+        const newAgent = {
+          id: newId,
+          name,
+          role: els.hireRole.value.trim() || 'Specialist Agent',
+          specialtyLabel: 'Custom Swarm Unit',
+          specialty: els.hireSpecialty.value,
+          primaryColor: state.selectedSwatch,
+          secondaryColor: '#fde047',
+          skinColor: '#fed7aa',
+          hairColor: '#1e293b',
+          accessory: els.hireAccessory.value,
+          facing: 'up',
+          deskId: freeDesk,
+          x: WAYPOINTS.door.x,
+          y: WAYPOINTS.door.y,
+          targetX: desk.seatX,
+          targetY: desk.seatY,
+          status: 'walking',
+          pendingStatus: 'idle',
+          bubble: 'Reporting for duty! 👋',
+          frame: 0,
+          jumpOffset: -10,
+          personaPrompt: `You are ${name}, ${els.hireRole.value.trim()}. ${els.hirePrompt.value.trim()}`
+        };
+
+        state.agents.push(newAgent);
+        state.selectedAgentId = newId;
+        els.hireName.value = '';
+        els.hireModal.classList.remove('open');
+
+        spawnEmote(WAYPOINTS.door.x, WAYPOINTS.door.y - 34, '✨ WELCOME!', '#fde047');
+        sfx.fanfare();
+        addComm('HR Desk', `🎉 Hired ${name} (${newAgent.role})! Walking from entrance to Desk #${freeDesk + 1}.`);
+        showToast(`${name} joined the 16-bit studio!`);
+        updateTelemetryAndHud();
+      });
+
+      // --------------------------------------------------------------------
+      // INITIALIZE APPLICATION
+      // --------------------------------------------------------------------
+      renderPresets();
+      renderComms();
+      renderArtifacts();
+      updateTelemetryAndHud();
+      requestAnimationFrame(tick);
+    })();
+  </script>
+</body>
+</html>
