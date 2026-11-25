@@ -523,9 +523,9 @@
 
     .tab-bar {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-      padding: 10px 12px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      padding: 10px 10px;
       background: #0b1120;
       border-bottom: 1px solid var(--border-subtle);
     }
@@ -536,13 +536,14 @@
       border: 1px solid transparent;
       background: transparent;
       color: var(--text-muted);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
+      white-space: nowrap;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 4px;
       transition: all 0.14s ease;
     }
 
@@ -885,6 +886,37 @@
       max-height: 270px;
       overflow-y: auto;
     }
+
+
+    /* Rendered markdown inside deliverables */
+    .artifact-card { border-left: 3px solid var(--artifact-accent, var(--border-strong)); transition: border-color .2s, transform .15s; }
+    .artifact-card:hover { transform: translateY(-1px); border-color: var(--border-strong); border-left-color: var(--artifact-accent, var(--border-strong)); }
+    .artifact-card.final { border-left-color: var(--accent-emerald); }
+    .tok-chip { font-family: var(--font-mono); font-size: 10px; padding: 1px 7px; border-radius: 999px; background: rgba(148,163,184,.12); color: var(--text-muted); white-space: nowrap; }
+    .artifact-body.md { white-space: normal; }
+    .md h2, .md h3, .md h4 { font-family: var(--font-sans); color: #fff; margin: 12px 0 6px; line-height: 1.3; }
+    .md h2 { font-size: 15px; } .md h3 { font-size: 13.5px; } .md h4 { font-size: 12.5px; color: var(--accent-amber); }
+    .md > :first-child { margin-top: 0; }
+    .md p { margin: 6px 0; }
+    .md ul, .md ol { margin: 6px 0 6px 18px; }
+    .md li { margin: 3px 0; }
+    .md strong { color: #fff; }
+    .md code { font-family: var(--font-mono); font-size: 11.5px; background: rgba(56,189,248,.1); color: #7dd3fc; padding: 1px 5px; border-radius: 4px; }
+    .md pre { background: #060a14; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; margin: 8px 0; overflow-x: auto; }
+    .md pre code { background: none; color: #cbd5e1; padding: 0; font-size: 11.5px; line-height: 1.55; }
+
+    /* Mission history (database-backed) */
+    .hist-card { background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 11px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .hist-prompt { font-size: 12.5px; font-weight: 600; color: #fff; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .hist-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+    .status-chip { padding: 1px 8px; border-radius: 999px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .status-chip.complete { background: rgba(16,185,129,.15); color: #34d399; }
+    .status-chip.running { background: rgba(245,158,11,.15); color: var(--accent-amber); }
+    .status-chip.failed { background: rgba(244,63,94,.15); color: #fb7185; }
+    .hist-actions { display: flex; gap: 6px; }
+    .db-badge { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); display: flex; align-items: center; gap: 5px; }
+    .db-badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); }
+    .db-badge.online { color: #34d399; } .db-badge.online::before { background: #10b981; box-shadow: 0 0 6px #10b981; }
 
     .empty-state {
       text-align: center;
@@ -1312,7 +1344,7 @@
           <div class="brand-title">Agent<span>HQ</span></div>
           <div id="globalStatusPill" class="status-pill">
             <span class="status-dot"></span>
-            <span id="globalStatusText">SWARM ONLINE</span>
+            <span id="globalStatusText">AgentHQ ONLINE</span>
           </div>
         </div>
         <div class="brand-sub">32-Bit Retro Multi-Agent Swarm Orchestration Studio</div>
@@ -1344,8 +1376,9 @@
     <!-- LEFT: 16-BIT PIXEL-ART OFFICE -->
     <section class="office-pane">
       <div class="office-toolbar">
-        <div class="floor-label">
-          <span id="floorLabelTag" class="floor-tag">FLOOR 02 // SWARM HQ (LEVEL 2)</span>
+        <div class="floor-label" style="display:flex;align-items:center;gap:8px;">
+          <select id="floorQuickSelect" class="form-select" style="padding:3px 8px;font-size:11px;font-weight:700;background:#0f172a;border-color:var(--accent-cyan);color:#38bdf8;max-width:210px;cursor:pointer;"></select>
+          <span id="floorLabelTag" class="floor-tag">FLOOR 01 // AgentHQ HQ</span>
           <span>Click any agent to chat, or click floor / espresso bar / whiteboard / arcade</span>
         </div>
         <div class="office-actions">
@@ -1380,6 +1413,7 @@
             <div id="hudRole" class="hud-role">Lead Architect • Systems &amp; Specs</div>
           </div>
           <button id="btnEditAgent" class="btn btn-sm" title="Edit selected agent">✎ Edit</button>
+          <button id="btnDismissAgent" class="btn btn-sm btn-rose-soft" title="Dismiss agent from floor">✕ Dismiss</button>
           <button id="btnOpenWalkie" class="btn btn-amber-soft btn-sm">📻 Walkie-Talkie</button>
         </div>
       </div>
@@ -1392,6 +1426,7 @@
     <aside class="command-pane">
       <nav class="tab-bar">
         <button class="tab-btn active" data-tab="mission">🚀 Mission</button>
+        <button class="tab-btn" data-tab="history">🗂 History</button>
         <button class="tab-btn" data-tab="team">👥 Team (<span id="tabTeamCount">4</span>)</button>
         <button class="tab-btn" data-tab="artifacts">
           📦 Deliverables <span id="tabArtifactBadge" class="badge-count" style="display:none;">0</span>
@@ -1463,6 +1498,17 @@
         </div>
 
         <!-- TAB 3: ARTIFACTS & DELIVERABLES -->
+        <div id="panel-history" class="tab-panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div style="font-size:13px;font-weight:700;">Mission History</div>
+              <div style="font-size:11px;color:var(--text-muted);">Saved in the studio database</div>
+            </div>
+            <span id="dbBadge" class="db-badge">offline</span>
+          </div>
+          <div id="historyList" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+
         <div id="panel-artifacts" class="tab-panel">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div>
@@ -1627,6 +1673,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal-backdrop">
     <div class="modal-card" style="max-width:520px;">
       <div class="modal-header">
         <span class="modal-title">⚙️ STUDIO SETTINGS &amp; MULTI-PROVIDER KEYS</span>
@@ -1723,6 +1772,9 @@
     </div>
   </div>
 
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
   <!-- Reception / Auth Gateway (Level 0 / Level 2 Switcher) -->
   <div id="receptionModal" class="modal-backdrop" style="display:flex;z-index:99999;">
     <div class="modal-card" style="max-width:420px;text-align:center;padding:24px;">
@@ -1755,8 +1807,9 @@
   </div>
 
   <!-- ======================================================================
-       5. 16-BIT PIXEL ENGINE, RETRO AUDIO SYNTH & SWARM ORCHESTRATOR
+       5. 16-BIT PIXEL ENGINE, RETRO AUDIO SYNTH & AgentHQ ORCHESTRATOR
   ====================================================================== -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script>
     (function () {
       'use strict';
@@ -1986,37 +2039,77 @@
       ];
 
       // --------------------------------------------------------------------
-      // APPLICATION STATE
+      // FLOOR ROSTERS & STAFF MANAGEMENT (Max 6 agents per floor)
       // --------------------------------------------------------------------
-      const state = {
-        agents: [
+      const DEFAULT_FLOOR_ROSTERS = {
+        floor0: [
+          {
+            id: 'sentinel-0',
+            name: 'Sentinel',
+            role: 'Perimeter Security',
+            specialtyLabel: 'Gatekeeper & Auth',
+            specialty: 'scout',
+            primaryColor: '#0ea5e9',
+            secondaryColor: '#7dd3fc',
+            skinColor: '#fed7aa',
+            hairColor: '#1e293b',
+            accessory: 'visor',
+            facing: 'down',
+            deskId: 0,
+            floorId: 'floor0',
+            status: 'idle',
+            pendingStatus: 'idle',
+            bubble: 'Perimeter secure 🛡️',
+            frame: 0,
+            jumpOffset: 0,
+            monitorColor: '#38bdf8',
+            personaPrompt: 'You are Sentinel, Security Specialist at AgentHQ Reception.'
+          },
+          {
+            id: 'concierge-0',
+            name: 'Aegis',
+            role: 'Director Protocol',
+            specialtyLabel: 'Access & Badges',
+            specialty: 'planner',
+            primaryColor: '#f59e0b',
+            secondaryColor: '#fef3c7',
+            skinColor: '#fde68a',
+            hairColor: '#3b2f2f',
+            accessory: 'glasses',
+            facing: 'down',
+            deskId: 1,
+            floorId: 'floor0',
+            status: 'idle',
+            pendingStatus: 'idle',
+            bubble: 'Awaiting credentials 🔑',
+            frame: 0,
+            jumpOffset: 0,
+            monitorColor: '#f59e0b',
+            personaPrompt: 'You are Aegis, Access Gateway Officer in AgentHQ Reception.'
+          }
+        ],
+        floor1: [
           {
             id: 'claude-1',
             name: 'Claude',
             role: 'Lead Architect',
             specialtyLabel: 'Systems & Specs',
             specialty: 'planner',
-            primaryColor: '#d97706', // Warm amber/terracotta cardigan
+            primaryColor: '#d97706',
             secondaryColor: '#fef3c7',
             skinColor: '#fed7aa',
             hairColor: '#3b2f2f',
             accessory: 'glasses',
             facing: 'down',
             deskId: 0,
-            x: DESKS[0].seatX,
-            y: DESKS[0].seatY,
-            targetX: DESKS[0].seatX,
-            targetY: DESKS[0].seatY,
+            floorId: 'floor1',
             status: 'idle',
             pendingStatus: 'idle',
             bubble: 'Specs aligned!',
             frame: 0,
             jumpOffset: 0,
             monitorColor: '#f59e0b',
-            specialtyPrompt:
-              'Produce clear, deeply structured system architectures, data schemas, and execution roadmaps with crisp markdown sections.',
-            personaPrompt:
-              'You are Claude, Lead Architect in AgentHQ. Produce clear, deeply structured system architectures, data schemas, and execution roadmaps with crisp markdown sections.'
+            personaPrompt: 'You are Claude, Lead Architect in AgentHQ.'
           },
           {
             id: 'codex-1',
@@ -2024,27 +2117,21 @@
             role: 'Systems Engineer',
             specialtyLabel: 'Code & Infra',
             specialty: 'builder',
-            primaryColor: '#10b981', // Emerald/mint cyber-hoodie
+            primaryColor: '#10b981',
             secondaryColor: '#6ee7b7',
             skinColor: '#fde68a',
             hairColor: '#0f172a',
             accessory: 'headset',
             facing: 'down',
             deskId: 1,
-            x: DESKS[1].seatX,
-            y: DESKS[1].seatY,
-            targetX: DESKS[1].seatX,
-            targetY: DESKS[1].seatY,
+            floorId: 'floor1',
             status: 'idle',
             pendingStatus: 'idle',
-            bubble: 'Compilers hot ⚡',
+            bubble: 'Build clean, test green!',
             frame: 0,
             jumpOffset: 0,
             monitorColor: '#10b981',
-            specialtyPrompt:
-              'Turn architectural plans into concrete, production-ready code implementations, API contracts, and infrastructure configs.',
-            personaPrompt:
-              'You are Codex, Systems Engineer in AgentHQ. Turn architectural plans into concrete, production-ready code implementations, API contracts, and infrastructure configs.'
+            personaPrompt: 'You are Codex, Systems Engineer in AgentHQ.'
           },
           {
             id: 'scout-1',
@@ -2052,57 +2139,181 @@
             role: 'Intel & Research',
             specialtyLabel: 'Signals & Edge Cases',
             specialty: 'scout',
-            primaryColor: '#0284c7', // Sky-blue explorer jacket
+            primaryColor: '#0284c7',
             secondaryColor: '#7dd3fc',
             skinColor: '#e0ac69',
             hairColor: '#7c2d12',
             accessory: 'cap',
             facing: 'down',
             deskId: 2,
-            x: DESKS[2].seatX,
-            y: DESKS[2].seatY,
-            targetX: DESKS[2].seatX,
-            targetY: DESKS[2].seatY,
+            floorId: 'floor1',
             status: 'idle',
             pendingStatus: 'idle',
-            bubble: 'Scanning signals...',
+            bubble: 'Vector radar locked.',
             frame: 0,
             jumpOffset: 0,
             monitorColor: '#38bdf8',
-            specialtyPrompt:
-              'Gather domain intelligence, uncover edge cases, user requirements, and competitive insights in a crisp INTEL.JSON/markdown brief.',
-            personaPrompt:
-              'You are Swarm Scout, Intel & Research Lead in AgentHQ. Gather domain intelligence, uncover edge cases, user requirements, and competitive insights in a crisp INTEL.JSON/markdown brief.'
+            personaPrompt: 'You are Swarm Scout, Intel Lead in AgentHQ.'
           },
           {
             id: 'pixel-1',
             name: 'Pixel',
-            role: 'QA & Design Lead',
-            specialtyLabel: 'UX, Polish & Audit',
+            role: 'QA & Polish Lead',
+            specialtyLabel: 'Design & Delight',
             specialty: 'designer',
-            primaryColor: '#db2777', // Violet/magenta studio outfit
-            secondaryColor: '#f472b6',
-            skinColor: '#ffedd5',
-            hairColor: '#4c1d95',
+            primaryColor: '#db2777',
+            secondaryColor: '#fbcfe8',
+            skinColor: '#fde68a',
+            hairColor: '#831843',
             accessory: 'beret',
             facing: 'down',
             deskId: 3,
-            x: DESKS[3].seatX,
-            y: DESKS[3].seatY,
-            targetX: DESKS[3].seatX,
-            targetY: DESKS[3].seatY,
+            floorId: 'floor1',
             status: 'idle',
             pendingStatus: 'idle',
-            bubble: 'Pixel-perfect ✨',
+            bubble: 'Pixel-perfect vibes ✨',
             frame: 0,
             jumpOffset: 0,
-            monitorColor: '#ec4899',
-            specialtyPrompt:
-              'Audit deliverables for UX clarity, accessibility, edge-case resilience, and synthesize the polished final launch summary.',
-            personaPrompt:
-              'You are Pixel, QA & Design Lead in AgentHQ. Audit deliverables for UX clarity, accessibility, edge-case resilience, and synthesize the polished final launch summary.'
+            monitorColor: '#f472b6',
+            personaPrompt: 'You are Pixel, QA & Design Lead in AgentHQ.'
           }
         ],
+        floor2: [
+          {
+            id: 'apex-2',
+            name: 'Apex',
+            role: 'Mesh Commander',
+            specialtyLabel: 'Neural Routing',
+            specialty: 'planner',
+            primaryColor: '#8b5cf6',
+            secondaryColor: '#ddd6fe',
+            skinColor: '#fed7aa',
+            hairColor: '#4c1d95',
+            accessory: 'crown',
+            facing: 'down',
+            deskId: 0,
+            floorId: 'floor2',
+            status: 'idle',
+            pendingStatus: 'idle',
+            bubble: 'Mesh synchronized ⚡',
+            frame: 0,
+            jumpOffset: 0,
+            monitorColor: '#a855f7',
+            personaPrompt: 'You are Apex, War Room Commander in AgentHQ Level 2.'
+          },
+          {
+            id: 'cipher-2',
+            name: 'Cipher',
+            role: 'Zero-Day Pentester',
+            specialtyLabel: 'Exploit Mitigation',
+            specialty: 'builder',
+            primaryColor: '#ef4444',
+            secondaryColor: '#fecaca',
+            skinColor: '#fde68a',
+            hairColor: '#0f172a',
+            accessory: 'headset',
+            facing: 'down',
+            deskId: 1,
+            floorId: 'floor2',
+            status: 'idle',
+            pendingStatus: 'idle',
+            bubble: 'Audit running... 🛡️',
+            frame: 0,
+            jumpOffset: 0,
+            monitorColor: '#f43f5e',
+            personaPrompt: 'You are Cipher, Offensive Security Lead in AgentHQ War Room.'
+          },
+          {
+            id: 'vortex-2',
+            name: 'Vortex',
+            role: 'Autonomous R&D',
+            specialtyLabel: 'Deep Transformers',
+            specialty: 'scout',
+            primaryColor: '#06b6d4',
+            secondaryColor: '#a5f3fc',
+            skinColor: '#ffedd5',
+            hairColor: '#0e7490',
+            accessory: 'monocle',
+            facing: 'down',
+            deskId: 2,
+            floorId: 'floor2',
+            status: 'idle',
+            pendingStatus: 'idle',
+            bubble: 'Synthesizing breakthrough 🔬',
+            frame: 0,
+            jumpOffset: 0,
+            monitorColor: '#22d3ee',
+            personaPrompt: 'You are Vortex, Autonomous AI Researcher in AgentHQ War Room.'
+          },
+          {
+            id: 'glitch-2',
+            name: 'Glitch',
+            role: 'Chaos Engineering',
+            specialtyLabel: 'Resilience & Audit',
+            specialty: 'designer',
+            primaryColor: '#ec4899',
+            secondaryColor: '#fce7f3',
+            skinColor: '#e0ac69',
+            hairColor: '#831843',
+            accessory: 'beret',
+            facing: 'down',
+            deskId: 3,
+            floorId: 'floor2',
+            status: 'idle',
+            pendingStatus: 'idle',
+            bubble: 'Stress tests passing 💥',
+            frame: 0,
+            jumpOffset: 0,
+            monitorColor: '#f472b6',
+            personaPrompt: 'You are Glitch, Resilience Auditor in AgentHQ War Room.'
+          }
+        ]
+      };
+
+      // In-memory floor agents storage (synced with DB & localStorage)
+      const floorStaffMap = {};
+
+      function getFloorRoster(floorId) {
+        if (!floorStaffMap[floorId]) {
+          const saved = localStorage.getItem(`agenthq_floor_staff_${floorId}`);
+          if (saved) {
+            try { floorStaffMap[floorId] = JSON.parse(saved); } catch (e) {}
+          }
+          if (!floorStaffMap[floorId] || !floorStaffMap[floorId].length) {
+            const defaults = DEFAULT_FLOOR_ROSTERS[floorId] || DEFAULT_FLOOR_ROSTERS['floor1'].slice(0, 2);
+            floorStaffMap[floorId] = JSON.parse(JSON.stringify(defaults));
+          }
+        }
+        return floorStaffMap[floorId].slice(0, 6);
+      }
+
+      function saveFloorRoster(floorId, agents) {
+        floorStaffMap[floorId] = agents.slice(0, 6);
+        try {
+          localStorage.setItem(`agenthq_floor_staff_${floorId}`, JSON.stringify(floorStaffMap[floorId]));
+        } catch (e) {}
+      }
+
+      // --------------------------------------------------------------------
+      // APPLICATION STATE
+      // --------------------------------------------------------------------
+      const state = {
+        agents: getFloorRoster(currentFloorId).map((a) => {
+          const desk = DESKS[(a.deskId || 0) % DESKS.length];
+          return {
+            facing: 'down',
+            status: 'idle',
+            pendingStatus: 'idle',
+            bubble: 'Ready!',
+            frame: 0,
+            jumpOffset: 0,
+            ...a,
+            x: desk.seatX,
+            y: desk.seatY,
+            targetX: desk.seatX,
+            targetY: desk.seatY
+          };
+        }),
         selectedAgentId: 'claude-1',
         lightingIdx: 0,
         simSpeed: 1,
@@ -2136,6 +2347,9 @@
         globalStatusPill: document.getElementById('globalStatusPill'),
         globalStatusText: document.getElementById('globalStatusText'),
         statAgents: document.getElementById('statAgents'),
+        toast: document.getElementById('toast'),
+        historyList: document.getElementById('historyList'),
+        dbBadge: document.getElementById('dbBadge'),
         statShipped: document.getElementById('statShipped'),
         statTokens: document.getElementById('statTokens'),
         btnLighting: document.getElementById('btnLighting'),
@@ -2154,6 +2368,7 @@
         hudState: document.getElementById('hudState'),
         hudRole: document.getElementById('hudRole'),
         btnEditAgent: document.getElementById('btnEditAgent'),
+        btnDismissAgent: document.getElementById('btnDismissAgent'),
         btnOpenWalkie: document.getElementById('btnOpenWalkie'),
         rosterStrip: document.getElementById('rosterStrip'),
         tabBtns: document.querySelectorAll('.tab-btn'),
@@ -2235,12 +2450,126 @@
         hirePreviewStage: document.getElementById('hirePreviewStage'),
         hirePreviewAccessory: document.getElementById('hirePreviewAccessory'),
         hirePreviewOutfitDot: document.getElementById('hirePreviewOutfitDot'),
-        hirePreviewMonitorDot: document.getElementById('hirePreviewMonitorDot')
+        hirePreviewMonitorDot: document.getElementById('hirePreviewMonitorDot'),
+        toast: document.getElementById('toast'),
+        floorQuickSelect: document.getElementById('floorQuickSelect')
       };
 
       // --------------------------------------------------------------------
       // UI & SIMULATION HELPERS
       // --------------------------------------------------------------------
+      // --------------------------------------------------------------------
+      // SERVER PERSISTENCE (SQLite via /api). Every call degrades silently so the
+      // studio still runs as a pure front-end demo when no server is reachable.
+      // --------------------------------------------------------------------
+      const api = {
+        online: false,
+        async req(method, url, body) {
+          try {
+            const r = await fetch(url, {
+              method,
+              headers: { 'Content-Type': 'application/json' },
+              body: body === undefined ? undefined : JSON.stringify(body)
+            });
+            if (!r.ok) return null;
+            api.online = true;
+            return await r.json();
+          } catch (e) {
+            return null;
+          }
+        },
+        get: (u) => api.req('GET', u),
+        post: (u, b) => api.req('POST', u, b),
+        put: (u, b) => api.req('PUT', u, b),
+        patch: (u, b) => api.req('PATCH', u, b),
+        del: (u) => api.req('DELETE', u)
+      };
+
+      const AGENT_FIELDS = ['name', 'role', 'specialty', 'specialtyLabel', 'specialtyPrompt', 'primaryColor',
+        'secondaryColor', 'skinColor', 'hairColor', 'monitorColor', 'accessory', 'deskId', 'personaPrompt', 'floorId'];
+
+      function persistAgent(ag) {
+        const body = {};
+        AGENT_FIELDS.forEach((k) => { if (ag[k] !== undefined) body[k] = ag[k]; });
+        if (!body.floorId) body.floorId = currentFloorId;
+        api.put(`/api/agents/${encodeURIComponent(ag.id)}`, body);
+      }
+
+      let currentMissionId = null;
+      let currentStageIndex = 0;
+      const makeId = (p) => `${p}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+      // Adds an artifact to the UI list and saves it against the running mission.
+      function pushArtifact(art) {
+        state.artifacts.unshift(art);
+        if (!currentMissionId) return;
+        currentStageIndex += 1;
+        api.post('/api/artifacts', {
+          id: makeId('art'),
+          missionId: currentMissionId,
+          stageIndex: currentStageIndex,
+          stageTitle: art.stageTitle,
+          agentName: art.agentName,
+          agentRole: art.agentRole,
+          color: art.color,
+          content: art.content,
+          tokens: art.tokens,
+          time: art.time,
+          isFinal: !!art.isFinal
+        });
+      }
+
+      // Rebuild the studio from the database on page load.
+      async function hydrateFromServer() {
+        const [agents, artifacts, stats, floors] = await Promise.all([
+          api.get('/api/agents'),
+          api.get('/api/artifacts'),
+          api.get('/api/stats'),
+          api.get('/api/settings/floors')
+        ]);
+        if (!api.online) return;
+        if (Array.isArray(agents) && agents.length) {
+          // Group agents by floor
+          const byFloor = {};
+          agents.forEach((row) => {
+            const f = row.floorId || 'floor1';
+            if (!byFloor[f]) byFloor[f] = [];
+            if (byFloor[f].length < 6) {
+              const desk = DESKS[(row.deskId || 0) % DESKS.length];
+              const merged = {
+                facing: 'down', status: 'idle', pendingStatus: 'idle', bubble: 'Ready!',
+                frame: 0, jumpOffset: 0, secondaryColor: '#fde047', skinColor: '#fed7aa',
+                hairColor: '#3b2f2f', monitorColor: '#f59e0b', accessory: 'none',
+                x: desk.seatX, y: desk.seatY, targetX: desk.seatX, targetY: desk.seatY
+              };
+              AGENT_FIELDS.forEach((k) => { if (row[k] !== null && row[k] !== undefined) merged[k] = row[k]; });
+              merged.id = row.id;
+              merged.deskId = row.deskId || 0;
+              merged.floorId = f;
+              byFloor[f].push(merged);
+            }
+          });
+          Object.keys(byFloor).forEach((f) => {
+            saveFloorRoster(f, byFloor[f]);
+          });
+          state.agents = getFloorRoster(currentFloorId);
+          if (!state.agents.some((a) => a.id === state.selectedAgentId) && state.agents.length) {
+            state.selectedAgentId = state.agents[0].id;
+          }
+        }
+        if (Array.isArray(artifacts)) {
+          state.artifacts = artifacts.map((a) => ({ ...a, isFinal: !!a.isFinal }));
+        }
+        if (stats) {
+          state.shippedCount = stats.shipped;
+          state.tokensCount = stats.tokens;
+        }
+        if (floors && Array.isArray(floors.value) && floors.value.length) floorLevels = floors.value;
+        renderFloorQuickSelect();
+        renderArtifacts();
+        updateTelemetryAndHud();
+      }
+
       function showToast(msg) {
         els.toast.textContent = msg;
         els.toast.classList.add('show');
@@ -2276,6 +2605,7 @@
       function switchTab(tabName) {
         els.tabBtns.forEach((b) => b.classList.toggle('active', b.dataset.tab === tabName));
         els.tabPanels.forEach((p) => p.classList.toggle('active', p.id === `panel-${tabName}`));
+        if (tabName === 'history') renderHistory();
       }
 
       function getSelectedAgent() {
@@ -2330,15 +2660,22 @@
         els.statShipped.textContent = String(state.shippedCount);
         els.statTokens.textContent = state.tokensCount.toLocaleString();
         els.tabTeamCount.textContent = String(state.agents.length);
-        els.btnOpenHire.disabled = false;
-        els.btnHireFromTab.disabled = false;
+        els.btnOpenHire.disabled = state.agents.length >= 6;
+        els.btnHireFromTab.disabled = state.agents.length >= 6;
+        if (state.agents.length >= 6) {
+          els.btnOpenHire.title = 'Floor is at maximum capacity (6/6)';
+          els.btnHireFromTab.title = 'Floor is at maximum capacity (6/6)';
+        } else {
+          els.btnOpenHire.title = 'Hire a new agent for this floor';
+          els.btnHireFromTab.title = 'Hire a new agent for this floor';
+        }
 
         if (state.isMissionRunning) {
           els.globalStatusPill.classList.add('busy');
-          els.globalStatusText.textContent = 'SWARM ACTIVE';
+          els.globalStatusText.textContent = 'AgentHQ ACTIVE';
         } else {
           els.globalStatusPill.classList.remove('busy');
-          els.globalStatusText.textContent = 'SWARM ONLINE';
+          els.globalStatusText.textContent = 'AgentHQ ONLINE';
         }
 
         const sel = getSelectedAgent();
@@ -2394,6 +2731,7 @@
             </div>
             <div class="team-card-actions">
               <button class="btn btn-sm team-edit-btn" data-edit-agent="${a.id}" title="Edit agent appearance &amp; prompt">✎ Edit</button>
+              <button class="btn btn-sm btn-rose-soft" data-dismiss-agent="${a.id}" title="Dismiss agent from this floor">✕ Fire</button>
               <button class="btn btn-amber-soft btn-sm" data-walkie-agent="${a.id}">📻 Radio</button>
             </div>
           </div>`
@@ -2411,6 +2749,80 @@
           </button>`
         ).join('');
       }
+
+      // Small, safe markdown renderer (input is escaped first, so no raw HTML gets through).
+      function mdToHtml(src) {
+        const blocks = [];
+        let text = escapeHtml(String(src || '')).replace(/```(\w*)\n?([\s\S]*?)```/g, (m, lang, code) => {
+          blocks.push(`<pre><code>${code.replace(/\n$/, '')}</code></pre>`);
+          return `\u0000${blocks.length - 1}\u0000`;
+        });
+        const inline = (t) => t
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        const out = [];
+        let list = null;
+        const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+        text.split('\n').forEach((line) => {
+          let m;
+          if ((m = line.match(/^\u0000(\d+)\u0000$/))) { closeList(); out.push(blocks[+m[1]]); }
+          else if ((m = line.match(/^(#{1,4})\s+(.*)$/))) { closeList(); const lv = Math.min(4, Math.max(2, m[1].length + 1)); out.push(`<h${lv}>${inline(m[2])}</h${lv}>`); }
+          else if ((m = line.match(/^\s*[-*]\s+(.*)$/))) { if (list !== 'ul') { closeList(); out.push('<ul>'); list = 'ul'; } out.push(`<li>${inline(m[1])}</li>`); }
+          else if ((m = line.match(/^\s*\d+\.\s+(.*)$/))) { if (list !== 'ol') { closeList(); out.push('<ol>'); list = 'ol'; } out.push(`<li>${inline(m[1])}</li>`); }
+          else if (line.trim() === '') closeList();
+          else { closeList(); out.push(`<p>${inline(line)}</p>`); }
+        });
+        closeList();
+        return out.join('').replace(/\u0000(\d+)\u0000/g, (m, i) => blocks[+i]);
+      }
+
+      function renderHistory() {
+        els.dbBadge.textContent = api.online ? 'database online' : 'offline';
+        els.dbBadge.classList.toggle('online', api.online);
+        api.get('/api/missions').then((rows) => {
+          els.dbBadge.textContent = api.online ? 'database online' : 'offline';
+          els.dbBadge.classList.toggle('online', api.online);
+          if (!rows || !rows.length) {
+            els.historyList.innerHTML = `<div class="empty-state"><strong>${api.online ? 'No missions yet' : 'Server not reachable'}</strong><br />${api.online ? 'Launch a mission and it is saved here automatically.' : 'Start the server (node server.js) to keep history between visits.'}</div>`;
+            return;
+          }
+          els.historyList.innerHTML = rows.map((m) => `
+            <div class="hist-card">
+              <div class="hist-prompt">${escapeHtml(m.prompt)}</div>
+              <div class="hist-meta">
+                <span class="status-chip ${escapeHtml(m.status)}">${escapeHtml(m.status)}</span>
+                <span>${m.artifactCount} deliverables</span>
+                <span class="tok-chip">${(m.totalTokens || 0).toLocaleString()} tok</span>
+                <span>${escapeHtml(m.createdAt)}</span>
+              </div>
+              <div class="hist-actions">
+                <button class="btn btn-sm" data-hist-open="${escapeHtml(m.id)}">📂 Open</button>
+                <button class="btn btn-sm" data-hist-reuse="${escapeHtml(m.id)}">↻ Re-run</button>
+                <button class="btn btn-sm btn-rose-soft" data-hist-del="${escapeHtml(m.id)}">✕</button>
+              </div>
+            </div>`).join('');
+          els.historyList._rows = rows;
+        });
+      }
+
+      els.historyList.addEventListener('click', async (e) => {
+        const rows = els.historyList._rows || [];
+        const open = e.target.closest('[data-hist-open]');
+        const reuse = e.target.closest('[data-hist-reuse]');
+        const del = e.target.closest('[data-hist-del]');
+        if (open) {
+          const arts = await api.get(`/api/missions/${encodeURIComponent(open.dataset.histOpen)}/artifacts`);
+          state.artifacts = (arts || []).map((a) => ({ ...a, isFinal: !!a.isFinal }));
+          renderArtifacts();
+          switchTab('artifacts');
+        } else if (reuse) {
+          const m = rows.find((r) => r.id === reuse.dataset.histReuse);
+          if (m) { els.missionInput.value = m.prompt; switchTab('mission'); els.missionInput.focus(); }
+        } else if (del) {
+          await api.del(`/api/missions/${encodeURIComponent(del.dataset.histDel)}`);
+          renderHistory();
+        }
+      });
 
       function renderArtifacts() {
         const count = state.artifacts.length;
@@ -2434,7 +2846,7 @@
         els.artifactsList.innerHTML = state.artifacts
           .map(
             (art, idx) => `
-          <div class="artifact-card ${art.isFinal ? 'final' : ''}">
+          <div class="artifact-card ${art.isFinal ? 'final' : ''}" style="--artifact-accent:${escapeHtml(art.color || '#364766')}">
             <div class="artifact-head">
               <div>
                 <div class="artifact-title">
@@ -2443,11 +2855,11 @@
                 </div>
                 <div class="artifact-meta">By ${escapeHtml(art.agentName)} (${escapeHtml(
               art.agentRole
-            )}) • ${art.time} • ${art.tokens} tok</div>
+            )}) • ${escapeHtml(art.time || '')} <span class="tok-chip">${art.tokens} tok</span></div>
               </div>
               <button class="btn btn-sm" data-copy-artifact="${idx}">📋 Copy</button>
             </div>
-            <div class="artifact-body">${escapeHtml(art.content)}</div>
+            <div class="artifact-body md">${mdToHtml(art.content)}</div>
           </div>`
           )
           .join('');
@@ -2493,6 +2905,10 @@
         if (!prompt || state.isMissionRunning) return;
 
         state.isMissionRunning = true;
+        currentMissionId = makeId('mission');
+        currentStageIndex = 0;
+        let missionOk = false;
+        api.post('/api/missions', { id: currentMissionId, prompt, floorId: currentFloorId });
         els.btnLaunchMission.disabled = true;
         els.btnCoffeeBreak.disabled = true;
         els.btnStandup.disabled = true;
@@ -2511,7 +2927,7 @@
         addComm('User', `🚀 Launched 4-Agent Mission: "${prompt.slice(0, 62)}..."`);
 
         try {
-          // STAGE 1: SWARM SCOUT (Intel & Edge Cases)
+          // STAGE 1: AgentHQ SCOUT (Intel & Edge Cases)
           setActivePipelineNode(1);
           els.liveBannerText.textContent = `Stage 1/4: ${scout.name} gathering domain intel & requirements...`;
           const sDesk = DESKS[scout.deskId % DESKS.length];
@@ -2528,7 +2944,7 @@
 
           const tok1 = Math.round(res1.text.length * 0.34) + 190;
           state.tokensCount += tok1;
-          state.artifacts.unshift({
+          pushArtifact({
             stageTitle: 'Stage 1 • Intel & Edge-Case Brief (INTEL.JSON)',
             agentName: scout.name,
             agentRole: scout.role,
@@ -2567,7 +2983,7 @@
 
           const tok2 = Math.round(res2.text.length * 0.35) + 250;
           state.tokensCount += tok2;
-          state.artifacts.unshift({
+          pushArtifact({
             stageTitle: 'Stage 2 • System Architecture Spec (ARCH_SPEC)',
             agentName: planner.name,
             agentRole: planner.role,
@@ -2601,7 +3017,7 @@
 
           const tok3 = Math.round(res3.text.length * 0.36) + 340;
           state.tokensCount += tok3;
-          state.artifacts.unshift({
+          pushArtifact({
             stageTitle: 'Stage 3 • Core Engineering Build (BUILD_V1)',
             agentName: builder.name,
             agentRole: builder.role,
@@ -2634,7 +3050,7 @@
 
           const tok4 = Math.round(res4.text.length * 0.34) + 240;
           state.tokensCount += tok4;
-          state.artifacts.unshift({
+          pushArtifact({
             stageTitle: 'Final Deliverable • QA Audit & Launch Brief (QA_PASS ✓)',
             agentName: designer.name,
             agentRole: designer.role,
@@ -2655,7 +3071,10 @@
           state.shippedCount += 1;
           addComm(designer.name, '✅ 4-Stage Swarm Mission complete! Final deliverable ready.');
           showToast('🎉 4-Agent Swarm Mission Shipped!');
+          missionOk = true;
         } finally {
+          if (currentMissionId) api.patch(`/api/missions/${currentMissionId}`, { status: missionOk ? 'complete' : 'failed' });
+          currentMissionId = null;
           state.isMissionRunning = false;
           setActivePipelineNode(0);
           els.btnLaunchMission.disabled = false;
@@ -3263,7 +3682,7 @@
         ctx.font = 'bold 8px "JetBrains Mono", monospace';
         ctx.fillStyle = state.isMissionRunning ? '#fbbf24' : '#10b981';
         ctx.textAlign = 'center';
-        ctx.fillText(state.isMissionRunning ? 'SWARM: BUSY' : 'SWARM: ONLINE', 626, 36);
+        ctx.fillText(state.isMissionRunning ? 'AgentHQ: BUSY' : 'AgentHQ: ONLINE', 626, 36);
         pxRect(
           584,
           22,
@@ -4206,6 +4625,13 @@
           openWalkieTalkie(walkieBtn.dataset.walkieAgent);
         }
 
+        const dismissBtn = e.target.closest('[data-dismiss-agent]');
+        if (dismissBtn) {
+          e.stopPropagation();
+          dismissAgent(dismissBtn.dataset.dismissAgent);
+          return;
+        }
+
         const editBtn = e.target.closest('[data-edit-agent]');
         if (editBtn) {
           e.stopPropagation();
@@ -4260,6 +4686,7 @@
 
       els.btnClearArtifacts.addEventListener('click', () => {
         state.artifacts = [];
+        api.del('/api/artifacts');
         renderArtifacts();
       });
 
@@ -4267,6 +4694,11 @@
       let editingAgentId = null;
 
       window.openHireModal = function openHireModal() {
+        if (state.agents.length >= 6) {
+          showToast('Floor at max capacity (6/6 agents)! Dismiss an agent first.');
+          sfx.blip();
+          return;
+        }
         editingAgentId = null;
         els.hireModalTitle.textContent = '+ HIRE 32-BIT STUDIO AGENT';
         els.hireSubmit.textContent = 'Onboard Through Front Door';
@@ -4644,12 +5076,102 @@
         showToast('Studio settings & API key vault saved!');
       });
 
-      // Level Manager & Floor Customizer Logic
+      // Floor Hierarchy & Customizer Setup
       let floorLevels = JSON.parse(localStorage.getItem('agenthq_floors') || JSON.stringify([
         { id: 'floor0', num: '00', name: 'Reception & Security Gate' },
         { id: 'floor1', num: '01', name: 'Swarm HQ & Core Engineering' },
         { id: 'floor2', num: '02', name: 'Advanced War Room & MCP Mesh' }
       ]));
+
+      // Floor Switching & Staff Roster Isolation (Max 6 agents per floor)
+      function renderFloorQuickSelect() {
+        if (!els.floorQuickSelect) return;
+        els.floorQuickSelect.innerHTML = floorLevels.map(f => `
+          <option value="${f.id}" ${f.id === currentFloorId ? 'selected' : ''}>Floor ${f.num}: ${escapeHtml(f.name)}</option>
+        `).join('');
+      }
+
+      function switchFloor(floorId, announce = true) {
+        if (!floorId) return;
+        // Save current floor's active agents
+        saveFloorRoster(currentFloorId, state.agents);
+
+        currentFloorId = floorId;
+        const floorObj = floorLevels.find(f => f.id === floorId) || { id: floorId, num: '01', name: 'Swarm HQ' };
+        
+        // Load target floor's isolated staff roster (max 6)
+        state.agents = getFloorRoster(floorId).slice(0, 6).map((a) => {
+          const desk = DESKS[(a.deskId || 0) % DESKS.length];
+          return {
+            facing: 'down',
+            status: 'idle',
+            pendingStatus: 'idle',
+            bubble: a.bubble || 'Ready!',
+            frame: 0,
+            jumpOffset: 0,
+            ...a,
+            deskId: (a.deskId || 0) % DESKS.length,
+            x: desk.seatX,
+            y: desk.seatY,
+            targetX: desk.seatX,
+            targetY: desk.seatY
+          };
+        });
+
+        if (!state.agents.some(a => a.id === state.selectedAgentId) && state.agents.length > 0) {
+          state.selectedAgentId = state.agents[0].id;
+        }
+
+        renderFloorQuickSelect();
+        if (els.floorSelect) els.floorSelect.value = floorId;
+        if (els.floorLabelTag) {
+          els.floorLabelTag.textContent = `FLOOR ${floorObj.num} // ${floorObj.name.toUpperCase()}`;
+        }
+
+        renderPresets();
+        updateTelemetryAndHud();
+
+        if (announce) {
+          sfx.blip();
+          addComm('Elevator', `🛗 Switched to Floor ${floorObj.num} (${floorObj.name}). Loaded dedicated staff (${state.agents.length}/6).`);
+          showToast(`Now on Floor ${floorObj.num}: ${floorObj.name}`);
+        }
+      }
+
+      if (els.floorQuickSelect) {
+        els.floorQuickSelect.addEventListener('change', (e) => {
+          switchFloor(e.target.value);
+        });
+      }
+
+      // Dismiss / Remove agent from current floor roster
+      window.dismissAgent = function dismissAgent(agentId) {
+        const agIndex = state.agents.findIndex(a => a.id === agentId);
+        if (agIndex === -1) return;
+        const ag = state.agents[agIndex];
+        const confirmDismiss = window.confirm(`Dismiss ${ag.name} from Floor ${currentFloorId}?`);
+        if (!confirmDismiss) return;
+
+        state.agents.splice(agIndex, 1);
+        saveFloorRoster(currentFloorId, state.agents);
+        api.del(`/api/agents/${encodeURIComponent(agentId)}`);
+
+        if (state.selectedAgentId === agentId) {
+          state.selectedAgentId = state.agents[0]?.id || null;
+        }
+
+        sfx.blip();
+        addComm('HR Desk', `🚪 Dismissed ${ag.name} (${ag.role}) from Floor ${currentFloorId}. Desk freed.`);
+        showToast(`${ag.name} dismissed.`);
+        updateTelemetryAndHud();
+      };
+
+      if (els.btnDismissAgent) {
+        els.btnDismissAgent.addEventListener('click', () => {
+          const sel = getSelectedAgent();
+          if (sel) dismissAgent(sel.id);
+        });
+      }
 
       function renderFloorManagerList() {
         els.floorListContainer.innerHTML = floorLevels.map((f, idx) => `
@@ -4683,10 +5205,12 @@
         const nextNum = String(floorLevels.length).padStart(2, '0');
         floorLevels.push({ id: `floor${floorLevels.length}`, num: nextNum, name: 'New Specialized Wing' });
         renderFloorManagerList();
+        renderFloorQuickSelect();
         sfx.blip();
       });
 
       renderFloorManagerList();
+      renderFloorQuickSelect();
 
       els.btnLevelManager.addEventListener('click', (e) => {
         e.preventDefault();
@@ -4710,6 +5234,7 @@
       els.btnSaveLevelManager.addEventListener('click', (e) => {
         e.preventDefault();
         localStorage.setItem('agenthq_floors', JSON.stringify(floorLevels));
+        api.put('/api/settings/floors', { value: floorLevels });
         els.levelManagerModal.classList.remove('open');
         sfx.fanfare();
         addComm('Level Manager', `🏢 Successfully updated floor hierarchy (${floorLevels.length} active floors).`);
@@ -4736,29 +5261,18 @@
         const dName = els.directorName.value.trim() || 'Commander Alex';
         const dPass = document.getElementById('directorPass')?.value.trim() || '';
         const floorVal = els.floorSelect.value;
-        currentFloorId = floorVal;
-        renderPresets();
         
-        const floorNum = floorVal === 'floor2' ? '02' : floorVal === 'floor0' ? '00' : '01';
-        const floorName = floorVal === 'floor2' ? 'Advanced War Room' : floorVal === 'floor0' ? 'Reception & Security' : 'Swarm HQ';
-        
-        // Adjust agent count and team size per floor level
-        if (floorVal === 'floor0') {
-          state.agents = state.agents.slice(0, 2); // 2 reception agents
-        } else if (floorVal === 'floor2') {
-          // Level 2 has full 6-agent capacity or 4-6 specialized units
-          if (state.agents.length < 6) {
-            // Ensure 6 desks active for Level 2
-          }
-        }
+        switchFloor(floorVal, false);
 
-        els.floorLabelTag.textContent = `FLOOR ${floorNum} // ${floorName.toUpperCase()} (LEVEL ${floorNum === '00' ? '0' : floorNum === '02' ? '2' : '1'} - ${dName.toUpperCase()})`;
+        const floorObj = floorLevels.find(f => f.id === floorVal) || { num: '01', name: 'Swarm HQ' };
+        if (els.floorLabelTag) {
+          els.floorLabelTag.textContent = `FLOOR ${floorObj.num} // ${floorObj.name.toUpperCase()} (${dName.toUpperCase()})`;
+        }
         els.receptionModal.style.display = 'none';
         els.receptionModal.classList.remove('open');
         sfx.fanfare();
-        addComm('Reception', `🔑 Access granted for ${dName} at Floor ${floorNum} (${floorName}). Studio telemetry synced.`);
-        showToast(`Welcome to Floor ${floorNum}, ${dName}!`);
-        updateTelemetryAndHud();
+        addComm('Reception', `🔑 Access granted for ${dName} at Floor ${floorObj.num} (${floorObj.name}). Studio telemetry synced.`);
+        showToast(`Welcome to Floor ${floorObj.num}, ${dName}!`);
       });
 
       els.btnOpenHire.addEventListener('click', (e) => {
@@ -4800,6 +5314,8 @@
             ag.personaPrompt = `You are ${name}, ${role}. ${promptText}`;
             sfx.blip();
             addComm('HR Desk', `✏️ Updated agent profile for ${name} (${role}).`);
+            saveFloorRoster(currentFloorId, state.agents);
+            persistAgent(ag);
             showToast(`Updated ${name}!`);
           }
         } else {
@@ -4838,11 +5354,14 @@
             bubble: 'Reporting for duty! 👋',
             frame: 0,
             jumpOffset: -10,
-            personaPrompt: `You are ${name}, ${role}. ${promptText}`
+            personaPrompt: `You are ${name}, ${role}. ${promptText}`,
+            floorId: currentFloorId
           };
 
           state.agents.push(newAgent);
           state.selectedAgentId = newId;
+          saveFloorRoster(currentFloorId, state.agents);
+          persistAgent(newAgent);
 
           spawnEmote(WAYPOINTS.door.x, WAYPOINTS.door.y - 68, '✨ WELCOME!', '#fde047');
           sfx.fanfare();
@@ -4888,6 +5407,7 @@
       renderArtifacts();
       updateTelemetryAndHud();
       connectBackendWS();
+      hydrateFromServer();
       requestAnimationFrame(tick);
     })();
   </script>

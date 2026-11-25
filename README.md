@@ -70,6 +70,22 @@ AgentHQ is a retro-inspired, high-density **32-bit pixel-art multi-agent office 
 
 ---
 
+## 🗄️ Database & API
+
+AgentHQ stores everything in a local SQLite file (`apps/server/agenthq.db`, created on first run and git-ignored). Schema changes are applied automatically through versioned migrations in `apps/server/db.js`, so databases from older versions upgrade in place.
+
+| Table | Holds |
+|-------|-------|
+| `agents` | Full agent profile: role, colours, accessory, desk, persona prompt, floor |
+| `missions` | Each swarm run: prompt, status (`running` / `complete` / `failed`), total tokens, timestamps |
+| `artifacts` | Deliverables per mission, ordered by stage |
+| `messages` | Walkie-talkie chat history per agent |
+| `settings` | Key/value store (e.g. floor hierarchy) |
+
+REST endpoints: `GET/POST /api/agents`, `PUT/DELETE /api/agents/:id`, `GET/POST /api/missions`, `PATCH/DELETE /api/missions/:id`, `GET /api/missions/:id/artifacts`, `GET/POST/DELETE /api/artifacts`, `GET/PUT /api/settings/:key`, `GET /api/stats`, `GET /api/health`, `POST /api/chat`.
+
+The UI loads from this API on start and falls back to pure demo mode if the server is unreachable. API keys stay in the browser and are never sent to the database.
+
 ## 📦 Project Structure
 
 ```text

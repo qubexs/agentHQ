@@ -1,17 +1,16 @@
-version: '3.8'
-
 services:
   agenthq:
     build:
-      context: ./apps/server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/server/Dockerfile
     ports:
       - "3000:3000"
     environment:
       - PORT=3000
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - DB_PATH=/data/agenthq.db
     volumes:
-      - agenthq_data:/app
+      - agenthq_data:/data   # SQLite database lives here and survives rebuilds
     restart: unless-stopped
 
 volumes:
