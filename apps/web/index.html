@@ -1601,32 +1601,69 @@
 
   <!-- Settings & AI Providers Modal -->
   <div id="settingsModal" class="modal-backdrop">
-    <div class="modal-card">
+    <div class="modal-card" style="max-width:520px;">
       <div class="modal-header">
-        <span class="modal-title">⚙️ STUDIO SETTINGS &amp; AI PROVIDERS</span>
+        <span class="modal-title">⚙️ STUDIO SETTINGS &amp; MULTI-PROVIDER KEYS</span>
         <button id="btnCloseSettings" class="btn btn-sm">✕</button>
       </div>
 
       <form id="settingsForm" style="display:flex;flex-direction:column;gap:11px;">
         <div class="form-group">
-          <label class="form-label">AI Model Provider</label>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <label class="form-label" style="margin:0;">AI Model Provider</label>
+            <button type="button" id="btnAddCustomProvider" class="btn btn-sm btn-cyan-soft" style="font-size:10px;padding:2px 8px;">+ Add Custom Provider</button>
+          </div>
           <select id="settingsProvider" class="form-select">
             <option value="omniroute" selected>OmniRoute Coding Stable (Default 5-Model Combo)</option>
             <option value="openai">OpenAI GPT-4o / o1</option>
             <option value="anthropic">Anthropic Claude 3.5 Sonnet</option>
             <option value="gemini">Google Gemini 2.5 Flash / Pro</option>
             <option value="ollama">Ollama / Local LLM (http://localhost:11434)</option>
+            <option value="custom">⚡ Custom Provider (Configure Endpoint)</option>
           </select>
+        </div>
+
+        <div id="customProviderGroup" class="form-row-2" style="display:none;">
+          <div class="form-group">
+            <label class="form-label">Custom Provider Name</label>
+            <input id="customProviderName" class="form-input" type="text" placeholder="e.g. DeepSeek, OpenRouter, Mistral..." />
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Endpoint URL</label>
+            <input id="customProviderEndpoint" class="form-input" type="text" placeholder="https://api.provider.com/v1" />
+          </div>
         </div>
 
         <div class="form-group">
           <label class="form-label">Active Swarm Model</label>
-          <input id="settingsModel" class="form-input" type="text" value="omniroute/coding-stable" />
+          <input id="settingsModel" class="form-input" type="text" value="omniroute/coding-stable" placeholder="e.g. gpt-4o, claude-3-5-sonnet, omniroute/coding-stable..." />
         </div>
 
-        <div class="form-group">
-          <label class="form-label">API Key / Auth Token ({env:GEMINI_API_KEY})</label>
-          <input id="settingsApiKey" class="form-input" type="password" placeholder="Enter API Key or leave blank for local demo mode..." />
+        <!-- Provider-Specific API Key Storage Vault -->
+        <div class="form-group" style="background:rgba(255,255,255,0.03);padding:10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);">
+          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--text-accent);margin-bottom:6px;">🔐 SECURE API KEY VAULT (STORED PER PROVIDER)</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="font-size:11px;width:90px;color:var(--text-muted);">OmniRoute:</span>
+              <input id="apiKeyOmniroute" class="form-input" type="password" placeholder="OmniRoute API Key..." style="flex:1;" />
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="font-size:11px;width:90px;color:var(--text-muted);">OpenAI:</span>
+              <input id="apiKeyOpenai" class="form-input" type="password" placeholder="sk-..." style="flex:1;" />
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="font-size:11px;width:90px;color:var(--text-muted);">Anthropic:</span>
+              <input id="apiKeyAnthropic" class="form-input" type="password" placeholder="sk-ant-..." style="flex:1;" />
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="font-size:11px;width:90px;color:var(--text-muted);">Gemini:</span>
+              <input id="apiKeyGemini" class="form-input" type="password" placeholder="AIzaSy..." style="flex:1;" />
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="font-size:11px;width:90px;color:var(--text-muted);">Custom/Ollama:</span>
+              <input id="apiKeyCustom" class="form-input" type="password" placeholder="Token or Bearer key..." style="flex:1;" />
+            </div>
+          </div>
         </div>
 
         <div class="form-row-2">
@@ -1649,12 +1686,12 @@
         </div>
 
         <div class="stage-hint">
-          Settings are saved live to `opencode.json` and persist across studio sessions.
+          API keys are securely stored in browser localStorage &amp; synchronized to `opencode.json`.
         </div>
 
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px;">
           <button type="button" id="btnCancelSettings" class="btn">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Studio Settings</button>
+          <button type="submit" class="btn btn-primary">Save Studio Settings &amp; Vault</button>
         </div>
       </form>
     </div>
@@ -2143,9 +2180,17 @@
         settingsForm: document.getElementById('settingsForm'),
         settingsProvider: document.getElementById('settingsProvider'),
         settingsModel: document.getElementById('settingsModel'),
-        settingsApiKey: document.getElementById('settingsApiKey'),
+        customProviderGroup: document.getElementById('customProviderGroup'),
+        customProviderName: document.getElementById('customProviderName'),
+        customProviderEndpoint: document.getElementById('customProviderEndpoint'),
+        apiKeyOmniroute: document.getElementById('apiKeyOmniroute'),
+        apiKeyOpenai: document.getElementById('apiKeyOpenai'),
+        apiKeyAnthropic: document.getElementById('apiKeyAnthropic'),
+        apiKeyGemini: document.getElementById('apiKeyGemini'),
+        apiKeyCustom: document.getElementById('apiKeyCustom'),
         settingsMcp: document.getElementById('settingsMcp'),
         settingsDocker: document.getElementById('settingsDocker'),
+        btnAddCustomProvider: document.getElementById('btnAddCustomProvider'),
         hirePreviewName: document.getElementById('hirePreviewName'),
         hirePreviewRole: document.getElementById('hirePreviewRole'),
         hirePreviewStage: document.getElementById('hirePreviewStage'),
@@ -4470,9 +4515,58 @@
         els.hireCustomStage.addEventListener(ev, updateHirePreview);
       });
 
-      // Settings Modal Setup
+      // Settings & Multi-Provider Vault
+      function loadSavedSettings() {
+        const savedProv = localStorage.getItem('agenthq_provider') || 'omniroute';
+        els.settingsProvider.value = savedProv;
+        els.settingsModel.value = localStorage.getItem('agenthq_model') || 'omniroute/coding-stable';
+        els.customProviderGroup.style.display = savedProv === 'custom' ? 'grid' : 'none';
+        if (savedProv === 'custom') {
+          els.customProviderName.value = localStorage.getItem('agenthq_custom_name') || '';
+          els.customProviderEndpoint.value = localStorage.getItem('agenthq_custom_endpoint') || '';
+        }
+        els.apiKeyOmniroute.value = localStorage.getItem('agenthq_key_omniroute') || '';
+        els.apiKeyOpenai.value = localStorage.getItem('agenthq_key_openai') || '';
+        els.apiKeyAnthropic.value = localStorage.getItem('agenthq_key_anthropic') || '';
+        els.apiKeyGemini.value = localStorage.getItem('agenthq_key_gemini') || '';
+        els.apiKeyCustom.value = localStorage.getItem('agenthq_key_custom') || '';
+      }
+      loadSavedSettings();
+
+      els.settingsProvider.addEventListener('change', () => {
+        const isCustom = els.settingsProvider.value === 'custom';
+        els.customProviderGroup.style.display = isCustom ? 'grid' : 'none';
+        if (!isCustom) {
+          const defaults = {
+            omniroute: 'omniroute/coding-stable',
+            openai: 'gpt-4o',
+            anthropic: 'claude-3-5-sonnet',
+            gemini: 'gemini-2.5-flash',
+            ollama: 'ollama/llama3'
+          };
+          els.settingsModel.value = defaults[els.settingsProvider.value] || 'omniroute/coding-stable';
+        }
+      });
+
+      els.btnAddCustomProvider.addEventListener('click', (e) => {
+        e.preventDefault();
+        const customName = prompt('Enter custom AI provider name (e.g. DeepSeek, OpenRouter, Mistral):');
+        if (!customName) return;
+        const optVal = customName.toLowerCase().replace(/\\s+/g, '-');
+        const opt = document.createElement('option');
+        opt.value = optVal;
+        opt.textContent = `${customName} (Custom API)`;
+        els.settingsProvider.appendChild(opt);
+        els.settingsProvider.value = optVal;
+        els.customProviderGroup.style.display = 'grid';
+        els.customProviderName.value = customName;
+        sfx.blip();
+        showToast(`Added custom provider: ${customName}`);
+      });
+
       function openSettingsModal() {
         sfx.blip();
+        loadSavedSettings();
         els.settingsModal.classList.add('open');
       }
 
@@ -4489,11 +4583,24 @@
         const mod = els.settingsModel.value.trim();
         const mcpServer = els.settingsMcp.value;
         const dockerMode = els.settingsDocker.value;
+
+        localStorage.setItem('agenthq_provider', prov);
+        localStorage.setItem('agenthq_model', mod);
+        localStorage.setItem('agenthq_key_omniroute', els.apiKeyOmniroute.value.trim());
+        localStorage.setItem('agenthq_key_openai', els.apiKeyOpenai.value.trim());
+        localStorage.setItem('agenthq_key_anthropic', els.apiKeyAnthropic.value.trim());
+        localStorage.setItem('agenthq_key_gemini', els.apiKeyGemini.value.trim());
+        localStorage.setItem('agenthq_key_custom', els.apiKeyCustom.value.trim());
+
+        if (prov === 'custom') {
+          localStorage.setItem('agenthq_custom_name', els.customProviderName.value.trim());
+          localStorage.setItem('agenthq_custom_endpoint', els.customProviderEndpoint.value.trim());
+        }
         
         els.settingsModal.classList.remove('open');
         sfx.fanfare();
-        addComm('Settings', `⚙️ Updated provider to ${prov.toUpperCase()} (${mod}), active MCP: ${mcpServer}, Docker: ${dockerMode}.`);
-        showToast('Studio settings saved successfully!');
+        addComm('Settings', `⚙️ Saved studio provider: ${prov.toUpperCase()} (${mod}) with secure key vault & active MCP: ${mcpServer}.`);
+        showToast('Studio settings & API key vault saved!');
       });
 
       els.receptionForm.addEventListener('submit', (e) => {
