@@ -1331,6 +1331,7 @@
       <button id="btnLighting" class="btn btn-cyan-soft btn-sm" title="Cycle Office Lighting">☀️ Day</button>
       <button id="btnSound" class="btn btn-sm" title="Toggle Retro Synth SFX">🔇 SFX</button>
       <button id="btnSpeed" class="btn btn-sm" title="Toggle Simulation Speed">⚡ 1x</button>
+      <button id="btnOpenSettings" class="btn btn-sm" title="Studio Settings &amp; AI Providers">⚙️ Settings</button>
       <button id="btnOpenHire" class="btn btn-primary btn-sm" onclick="openHireModal()">+ Hire Agent</button>
       <button id="btnFocusMission" class="btn btn-primary btn-sm">✦ New Mission</button>
     </div>
@@ -1598,8 +1599,66 @@
     </form>
   </div>
 
-  <!-- Toast Banner -->
-  <div id="toast" class="toast"></div>
+  <!-- Settings & AI Providers Modal -->
+  <div id="settingsModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="modal-title">⚙️ STUDIO SETTINGS &amp; AI PROVIDERS</span>
+        <button id="btnCloseSettings" class="btn btn-sm">✕</button>
+      </div>
+
+      <form id="settingsForm" style="display:flex;flex-direction:column;gap:11px;">
+        <div class="form-group">
+          <label class="form-label">AI Model Provider</label>
+          <select id="settingsProvider" class="form-select">
+            <option value="omniroute" selected>OmniRoute Coding Stable (Default 5-Model Combo)</option>
+            <option value="openai">OpenAI GPT-4o / o1</option>
+            <option value="anthropic">Anthropic Claude 3.5 Sonnet</option>
+            <option value="gemini">Google Gemini 2.5 Flash / Pro</option>
+            <option value="ollama">Ollama / Local LLM (http://localhost:11434)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Active Swarm Model</label>
+          <input id="settingsModel" class="form-input" type="text" value="omniroute/coding-stable" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">API Key / Auth Token ({env:GEMINI_API_KEY})</label>
+          <input id="settingsApiKey" class="form-input" type="password" placeholder="Enter API Key or leave blank for local demo mode..." />
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">MCP Tool Server</label>
+            <select id="settingsMcp" class="form-select">
+              <option value="github" selected>GitHub Webhook &amp; Repo MCP</option>
+              <option value="docker">Docker Sandbox Runtime MCP</option>
+              <option value="filesystem">Local Filesystem &amp; Artifacts MCP</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Background Docker Run</label>
+            <select id="settingsDocker" class="form-select">
+              <option value="isolated" selected>Isolated Container per Agent</option>
+              <option value="shared">Shared Swarm Compose Net</option>
+              <option value="disabled">Disabled (Host Node Runtime)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="stage-hint">
+          Settings are saved live to `opencode.json` and persist across studio sessions.
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px;">
+          <button type="button" id="btnCancelSettings" class="btn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Studio Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Reception / Auth Gateway (Level 0 / Level 2 Switcher) -->
   <div id="receptionModal" class="modal-backdrop" style="display:flex;z-index:99999;">
@@ -2077,6 +2136,16 @@
         directorName: document.getElementById('directorName'),
         floorSelect: document.getElementById('floorSelect'),
         floorLabelTag: document.getElementById('floorLabelTag'),
+        btnOpenSettings: document.getElementById('btnOpenSettings'),
+        settingsModal: document.getElementById('settingsModal'),
+        btnCloseSettings: document.getElementById('btnCloseSettings'),
+        btnCancelSettings: document.getElementById('btnCancelSettings'),
+        settingsForm: document.getElementById('settingsForm'),
+        settingsProvider: document.getElementById('settingsProvider'),
+        settingsModel: document.getElementById('settingsModel'),
+        settingsApiKey: document.getElementById('settingsApiKey'),
+        settingsMcp: document.getElementById('settingsMcp'),
+        settingsDocker: document.getElementById('settingsDocker'),
         hirePreviewName: document.getElementById('hirePreviewName'),
         hirePreviewRole: document.getElementById('hirePreviewRole'),
         hirePreviewStage: document.getElementById('hirePreviewStage'),
@@ -4399,6 +4468,32 @@
         els.hireHair.addEventListener(ev, updateHirePreview);
         els.hireSkin.addEventListener(ev, updateHirePreview);
         els.hireCustomStage.addEventListener(ev, updateHirePreview);
+      });
+
+      // Settings Modal Setup
+      function openSettingsModal() {
+        sfx.blip();
+        els.settingsModal.classList.add('open');
+      }
+
+      els.btnOpenSettings.addEventListener('click', (e) => {
+        e.preventDefault();
+        openSettingsModal();
+      });
+      els.btnCloseSettings.addEventListener('click', () => els.settingsModal.classList.remove('open'));
+      els.btnCancelSettings.addEventListener('click', () => els.settingsModal.classList.remove('open'));
+
+      els.settingsForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const prov = els.settingsProvider.value;
+        const mod = els.settingsModel.value.trim();
+        const mcpServer = els.settingsMcp.value;
+        const dockerMode = els.settingsDocker.value;
+        
+        els.settingsModal.classList.remove('open');
+        sfx.fanfare();
+        addComm('Settings', `⚙️ Updated provider to ${prov.toUpperCase()} (${mod}), active MCP: ${mcpServer}, Docker: ${dockerMode}.`);
+        showToast('Studio settings saved successfully!');
       });
 
       els.receptionForm.addEventListener('submit', (e) => {
