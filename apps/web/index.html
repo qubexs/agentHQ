@@ -1349,6 +1349,7 @@
           <span>Click any agent to chat, or click floor / espresso bar / whiteboard / arcade</span>
         </div>
         <div class="office-actions">
+          <button id="btnLevelManager" class="btn btn-cyan-soft btn-sm" title="Manage Floors &amp; Level Gateway">🏢 Level Manager</button>
           <button id="btnCoffeeBreak" class="btn btn-amber-soft btn-sm">☕ Coffee Break</button>
           <button id="btnStandup" class="btn btn-purple-soft btn-sm">📋 All-Hands Standup</button>
           <button id="btnReturnDesks" class="btn btn-sm">💼 Back to Desks</button>
@@ -2173,6 +2174,7 @@
         directorName: document.getElementById('directorName'),
         floorSelect: document.getElementById('floorSelect'),
         floorLabelTag: document.getElementById('floorLabelTag'),
+        btnLevelManager: document.getElementById('btnLevelManager'),
         btnOpenSettings: document.getElementById('btnOpenSettings'),
         settingsModal: document.getElementById('settingsModal'),
         btnCloseSettings: document.getElementById('btnCloseSettings'),
@@ -4601,6 +4603,14 @@
         sfx.fanfare();
         addComm('Settings', `⚙️ Saved studio provider: ${prov.toUpperCase()} (${mod}) with secure key vault & active MCP: ${mcpServer}.`);
         showToast('Studio settings & API key vault saved!');
+      });
+
+      // Level Manager Button Binding
+      els.btnLevelManager.addEventListener('click', (e) => {
+        e.preventDefault();
+        sfx.blip();
+        els.receptionModal.style.display = 'flex';
+        els.receptionModal.classList.add('open');
       });
 
       els.receptionForm.addEventListener('submit', (e) => {
