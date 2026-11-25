@@ -1600,8 +1600,32 @@
     </form>
   </div>
 
-  <!-- Settings & AI Providers Modal -->
-  <div id="settingsModal" class="modal-backdrop">
+  <!-- Level Management & Floor Customizer Modal -->
+  <div id="levelManagerModal" class="modal-backdrop">
+    <div class="modal-card" style="max-width:460px;">
+      <div class="modal-header">
+        <span class="modal-title">🏢 LEVEL &amp; FLOOR MANAGER</span>
+        <button id="btnCloseLevelManager" class="btn btn-sm">✕</button>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="stage-hint">
+          Configure, rename, add, or remove studio floor levels and assign specialized security and operations teams.
+        </div>
+
+        <div id="floorListContainer" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;padding-right:4px;">
+          <!-- Populated dynamically -->
+        </div>
+
+        <button type="button" id="btnAddFloorLevel" class="btn btn-cyan-soft btn-sm" style="justify-content:center;">+ Add New Floor Level</button>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;">
+          <button type="button" id="btnCancelLevelManager" class="btn">Close</button>
+          <button type="button" id="btnSaveLevelManager" class="btn btn-primary">Apply &amp; Sync Floors</button>
+        </div>
+      </div>
+    </div>
+  </div>
     <div class="modal-card" style="max-width:520px;">
       <div class="modal-header">
         <span class="modal-title">⚙️ STUDIO SETTINGS &amp; MULTI-PROVIDER KEYS</span>
@@ -2175,6 +2199,12 @@
         floorSelect: document.getElementById('floorSelect'),
         floorLabelTag: document.getElementById('floorLabelTag'),
         btnLevelManager: document.getElementById('btnLevelManager'),
+        levelManagerModal: document.getElementById('levelManagerModal'),
+        btnCloseLevelManager: document.getElementById('btnCloseLevelManager'),
+        btnCancelLevelManager: document.getElementById('btnCancelLevelManager'),
+        btnSaveLevelManager: document.getElementById('btnSaveLevelManager'),
+        floorListContainer: document.getElementById('floorListContainer'),
+        btnAddFloorLevel: document.getElementById('btnAddFloorLevel'),
         btnOpenSettings: document.getElementById('btnOpenSettings'),
         settingsModal: document.getElementById('settingsModal'),
         btnCloseSettings: document.getElementById('btnCloseSettings'),
@@ -4603,6 +4633,78 @@
         sfx.fanfare();
         addComm('Settings', `⚙️ Saved studio provider: ${prov.toUpperCase()} (${mod}) with secure key vault & active MCP: ${mcpServer}.`);
         showToast('Studio settings & API key vault saved!');
+      });
+
+      // Level Manager & Floor Customizer Logic
+      let floorLevels = JSON.parse(localStorage.getItem('agenthq_floors') || JSON.stringify([
+        { id: 'floor0', num: '00', name: 'Reception & Security Gate' },
+        { id: 'floor1', num: '01', name: 'Swarm HQ & Core Engineering' },
+        { id: 'floor2', num: '02', name: 'Advanced War Room & MCP Mesh' }
+      ]));
+
+      function renderFloorManagerList() {
+        els.floorListContainer.innerHTML = floorLevels.map((f, idx) => `
+          <div style="display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.03);padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);">
+            <input class="form-input" style="width:50px;text-align:center;" type="text" value="${f.num}" data-floor-idx="${idx}" data-field="num" placeholder="Num" />
+            <input class="form-input" style="flex:1;" type="text" value="${f.name}" data-floor-idx="${idx}" data-field="name" placeholder="Floor Name..." />
+            <button type="button" class="btn btn-sm btn-rose-soft" onclick="removeFloorLevel(${idx})" title="Delete Floor">✕</button>
+          </div>
+        `).join('');
+
+        // Update floorSelect dropdown in reception modal too
+        if (els.floorSelect) {
+          els.floorSelect.innerHTML = floorLevels.map(f => `
+            <option value="${f.id}">Floor ${f.num}: ${f.name}</option>
+          `).join('');
+        }
+      }
+
+      window.removeFloorLevel = function(idx) {
+        if (floorLevels.length <= 1) {
+          showToast('Cannot remove last remaining floor!');
+          return;
+        }
+        floorLevels.splice(idx, 1);
+        renderFloorManagerList();
+        sfx.blip();
+      };
+
+      els.btnAddFloorLevel.addEventListener('click', (e) => {
+        e.preventDefault();
+        const nextNum = String(floorLevels.length).padStart(2, '0');
+        floorLevels.push({ id: `floor${floorLevels.length}`, num: nextNum, name: 'New Specialized Wing' });
+        renderFloorManagerList();
+        sfx.blip();
+      });
+
+      renderFloorManagerList();
+
+      els.btnLevelManager.addEventListener('click', (e) => {
+        e.preventDefault();
+        sfx.blip();
+        renderFloorManagerList();
+        els.levelManagerModal.classList.add('open');
+      });
+
+      els.btnCloseLevelManager.addEventListener('click', () => els.levelManagerModal.classList.remove('open'));
+      els.btnCancelLevelManager.addEventListener('click', () => els.levelManagerModal.classList.remove('open'));
+
+      els.floorListContainer.addEventListener('input', (e) => {
+        const target = e.target;
+        const idx = target.dataset.floorIdx;
+        const field = target.dataset.field;
+        if (idx !== undefined && field) {
+          floorLevels[idx][field] = target.value;
+        }
+      });
+
+      els.btnSaveLevelManager.addEventListener('click', (e) => {
+        e.preventDefault();
+        localStorage.setItem('agenthq_floors', JSON.stringify(floorLevels));
+        els.levelManagerModal.classList.remove('open');
+        sfx.fanfare();
+        addComm('Level Manager', `🏢 Successfully updated floor hierarchy (${floorLevels.length} active floors).`);
+        showToast('Floor hierarchy saved!');
       });
 
       // Level Manager Button Binding
