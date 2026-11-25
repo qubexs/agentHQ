@@ -84,6 +84,20 @@ agentHQ/
 
 ---
 
-## 📜 License
+## 🚀 Future Roadmap & Architecture Vision
+
+AgentHQ is engineered to scale from a single-floor retro office into a fully autonomous enterprise multi-agent swarm grid:
+
+1. **Multi-Floor & Dynamic Level Renaming**:
+   - Easily expand beyond Level 2 into infinite floors (Level 03: Security & Pentest Vault, Level 04: Production Operations, Level 05: Autonomous R&D Lab).
+   - Customize floor titles, security clearances, and director access rules on the fly.
+
+2. **Specialized Agent Tools & Expert Personas**:
+   - **Coding Swarm**: Specialized units for Code Generation, Dev/Staging Sandbox Testing, Pentest Vulnerability Auditing, Automated Code Repair, and Zero-Downtime Production Deployment.
+   - **Social & Engagement Swarm**: Units dedicated to real-time social replies, community polling, brand sentiment monitoring, and automated community updates.
+   - **Research & Intelligence Swarm**: Autonomous web scrapers, academic whitepaper indexers, reference synthesizers, and citation graph builders.
+
+3. **Autonomous Background Docker Runtimes**:
+   - Each studio agent can spin up its own isolated background Docker container to execute code, run tests, compile assets, and stream real-time logs back to the main 32-bit office canvas.
 
 Distributed under the MIT License. See `LICENSE` for more information.
