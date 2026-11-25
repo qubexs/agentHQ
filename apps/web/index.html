@@ -1947,28 +1947,33 @@
         { value: '#8d5524', label: 'Deep' }
       ];
 
-      const PRESETS = [
-        {
-          title: '🚀 Build SaaS MVP',
-          prompt:
-            'Build a full-stack SaaS MVP ("PulseLog") for automated AI release notes with GitHub webhook ingestion, real-time changelog feed, and launch growth copy.'
-        },
-        {
-          title: '🛡️ Security Audit & Patch',
-          prompt:
-            'Audit a multi-tenant Node.js & PostgreSQL webhook service for replay attacks, tenant isolation leaks, rate-limiting bypasses, and deliver hardened middleware.'
-        },
-        {
-          title: '📣 Launch Growth Campaign',
-          prompt:
-            'Research developer pain points and craft a high-converting Product Hunt launch strategy, landing page hero copy, and 5-day X/Twitter technical thread.'
-        },
-        {
-          title: '🔥 Debug Production Outage',
-          prompt:
-            'Diagnose a cascading Redis connection pool exhaustion & WebSocket reconnect storm under 50k concurrent users, and produce a zero-downtime hotfix runbook.'
-        }
-      ];
+      // Dynamic Level-Scoped Mission Presets
+      function getLevelPresets(floorId) {
+        const floorPresetsMap = {
+          'floor0': [
+            { title: '🚪 Secure Perimeter Scan', prompt: 'Audit all incoming authentication tokens, verify perimeter TLS certificates, and log zero-trust access gateway events.' },
+            { title: '🔑 Issue Director Badge', prompt: 'Generate secure cryptokeys, enforce role-based access control (RBAC), and provision visitor clearance passes.' },
+            { title: '📊 Reception Traffic Analytics', prompt: 'Analyze visitor ingress velocity, peak hours, and unauthorized access attempts across security gates.' },
+            { title: '🚨 Threat Mitigation Drill', prompt: 'Simulate a DDoS mitigation runbook and test fallback circuit breakers on the reception gateway.' }
+          ],
+          'floor1': [
+            { title: '🚀 Build SaaS MVP', prompt: 'Build a full-stack SaaS MVP ("PulseLog") for automated AI release notes with GitHub webhook ingestion and real-time changelog feed.' },
+            { title: '🛡️ Security Audit & Patch', prompt: 'Audit a multi-tenant Node.js & PostgreSQL webhook service for replay attacks, tenant isolation leaks, and deliver hardened middleware.' },
+            { title: '📣 Launch Growth Campaign', prompt: 'Research developer pain points and craft a high-converting Product Hunt launch strategy and 5-day technical thread.' },
+            { title: '🔥 Debug Production Outage', prompt: 'Diagnose a cascading Redis connection pool exhaustion & WebSocket reconnect storm under 50k concurrent users.' }
+          ],
+          'floor2': [
+            { title: '⚡ Advanced War Room Mesh', prompt: 'Orchestrate multi-cluster LLM routing across distributed agent nodes with zero latency penalty and automatic failover.' },
+            { title: '🔬 Deep Autonomous R&D', prompt: 'Index academic whitepapers, synthesize state-of-the-art transformer architectures, and compile a research breakthrough brief.' },
+            { title: '🛠️ Pentest & Zero-Day Audit', prompt: 'Perform automated fuzzing, vulnerability scanning, and red-team penetration testing on core microservice endpoints.' },
+            { title: '📦 Zero-Downtime Global Release', prompt: 'Deploy multi-region Kubernetes clusters with canary routing, automated rollback triggers, and telemetry observability.' }
+          ]
+        };
+        return floorPresetsMap[floorId] || floorPresetsMap['floor1'];
+      }
+
+      let currentFloorId = 'floor1';
+      let activePresets = getLevelPresets(currentFloorId);
 
       const IDLE_THOUGHTS = [
         'Aligning context...',
@@ -2397,7 +2402,8 @@
       }
 
       function renderPresets() {
-        els.presetList.innerHTML = PRESETS.map(
+        const presets = getLevelPresets(currentFloorId);
+        els.presetList.innerHTML = presets.map(
           (p, idx) => `
           <button class="preset-btn" data-preset-idx="${idx}">
             <div class="preset-title-row">${escapeHtml(p.title)}</div>
@@ -4210,10 +4216,11 @@
         const presetBtn = e.target.closest('[data-preset-idx]');
         if (presetBtn) {
           const idx = Number(presetBtn.dataset.presetIdx);
-          if (PRESETS[idx]) {
-            els.missionInput.value = PRESETS[idx].prompt;
+          const presets = getLevelPresets(currentFloorId);
+          if (presets[idx]) {
+            els.missionInput.value = presets[idx].prompt;
             sfx.blip();
-            showToast(`Loaded preset: ${PRESETS[idx].title}`);
+            showToast(`Loaded preset: ${presets[idx].title}`);
           }
         }
 
@@ -4729,6 +4736,9 @@
         const dName = els.directorName.value.trim() || 'Commander Alex';
         const dPass = document.getElementById('directorPass')?.value.trim() || '';
         const floorVal = els.floorSelect.value;
+        currentFloorId = floorVal;
+        renderPresets();
+        
         const floorNum = floorVal === 'floor2' ? '02' : floorVal === 'floor0' ? '00' : '01';
         const floorName = floorVal === 'floor2' ? 'Advanced War Room' : floorVal === 'floor0' ? 'Reception & Security' : 'Swarm HQ';
         
