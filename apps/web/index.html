@@ -1444,6 +1444,7 @@
         <div id="canvasMoodBadge" class="canvas-mood-badge">☀️ SUNLIT DAY</div>
         <div id="objectTools" class="object-tools" aria-label="Office object editor">
           <div class="object-tools-title">▦ FLOOR OBJECTS <span id="objectFloorLabel">FLOOR 01</span></div>
+          <button id="btnObjectEditMode" class="btn btn-sm btn-amber-soft" type="button">✥ Edit Objects: ON</button>
           <div id="objectInventory" class="object-inventory"></div>
           <div class="object-tools-help">Double-click an object to select · drag to move · R to rotate · Store to inventory</div>
           <button id="btnStoreObject" class="btn btn-sm btn-rose-soft" disabled>▣ Store Selected</button>
@@ -2434,7 +2435,8 @@
         },
         selectedObjectId: null,
         placementObjectType: null,
-        objectDrag: null
+        objectDrag: null,
+        objectEditMode: true
       };
 
       // --------------------------------------------------------------------
@@ -2560,7 +2562,8 @@
         floorQuickSelect: document.getElementById('floorQuickSelect'),
         objectInventory: document.getElementById('objectInventory'),
         objectFloorLabel: document.getElementById('objectFloorLabel'),
-        btnStoreObject: document.getElementById('btnStoreObject')
+        btnStoreObject: document.getElementById('btnStoreObject'),
+        btnObjectEditMode: document.getElementById('btnObjectEditMode')
       };
 
       // --------------------------------------------------------------------
@@ -6149,17 +6152,27 @@
       }
       function hitFloorObject(e) {
         const p = canvasWorldPoint(e);
+        // Test nearest object first and use a generous floor-footprint hit area.
+        // This makes small props selectable without accidentally sending an agent.
         return getObjectLayout(currentFloorId).slice().reverse().find((obj) => {
-          const w = (obj.width || 60) * 0.72, h = (obj.height || 60) * 0.72;
+          const w = Math.max(34, (obj.width || 60) * 0.72), h = Math.max(30, (obj.height || 60) * 0.72);
           return Math.abs(p.x - obj.x) <= w && Math.abs(p.y - obj.y) <= h;
         });
       }
+      function toggleObjectEditMode() {
+        state.objectEditMode = !state.objectEditMode;
+        if (els.btnObjectEditMode) els.btnObjectEditMode.textContent = `✥ Edit Objects: ${state.objectEditMode ? 'ON' : 'OFF'}`;
+        canvas.style.cursor = state.objectEditMode ? 'crosshair' : 'pointer';
+        showToast(state.objectEditMode ? 'Object edit mode: click objects to select and drag to move.' : 'Agent mode: click the floor to move the selected agent.');
+      }
+      els.btnObjectEditMode?.addEventListener('click', toggleObjectEditMode);
       function selectFloorObject(obj) {
         state.selectedObjectId = obj?.id || null;
         updateTelemetryAndHud();
         renderObjectInventory();
       }
       canvas.addEventListener('dblclick', (e) => {
+        if (!state.objectEditMode) return;
         const obj = hitFloorObject(e);
         if (!obj) return;
         selectFloorObject(obj);
@@ -6167,7 +6180,7 @@
         e.preventDefault();
       });
       canvas.addEventListener('pointerdown', (e) => {
-        if (state.placementObjectType) return;
+        if (!state.objectEditMode || state.placementObjectType) return;
         const obj = hitFloorObject(e);
         if (!obj) return;
         const p = canvasWorldPoint(e);
@@ -6215,6 +6228,15 @@
             getObjectLayout(currentFloorId).push({ id: `${currentFloorId}-${meta.type}-${Date.now()}`, type: meta.type, x: Math.round(point.x), y: Math.round(point.y), rotation: 0, width: meta.width, height: meta.height });
             saveObjectLayout(); state.placementObjectType = null; canvas.style.cursor = 'pointer'; renderObjectInventory();
             showToast(`${meta.label} placed on this floor.`);
+          }
+          return;
+        }
+
+        if (state.objectEditMode) {
+          const object = hitFloorObject(e);
+          if (object) {
+            selectFloorObject(object);
+            showToast(`${OBJECT_CATALOG.find((x) => x.type === object.type)?.label || 'Object'} selected. Drag to move or press R to rotate.`);
           }
           return;
         }
