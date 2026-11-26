@@ -4723,9 +4723,11 @@
         const s = Math.sin(cam.angle);
         const rx = dx * c - dy * s;
         const ry = dx * s + dy * c;
+        // Fit the complete 1400x720 floor inside the 1400x720 canvas.
+        // The previous coefficients projected the corners outside the viewport.
         return {
-          x: WORLD_W / 2 + (rx - ry) * 0.58,
-          y: 76 + (rx + ry) * 0.27 - z
+          x: WORLD_W / 2 + (rx - ry) * 0.49,
+          y: WORLD_H / 2 + (rx + ry) * 0.225 - z
         };
       }
 
