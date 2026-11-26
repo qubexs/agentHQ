@@ -1399,6 +1399,7 @@
       <button id="btnSound" class="btn btn-sm" title="Toggle Retro Synth SFX">🔇 SFX</button>
       <button id="btnSpeed" class="btn btn-sm" title="Toggle Simulation Speed">⚡ 1x</button>
       <button id="btnOpenSettings" class="btn btn-sm" title="Studio Settings &amp; AI Providers">⚙️ Settings</button>
+      <button id="btnOpen3DStudio" class="btn btn-sm btn-amber-soft" title="Open GLB/GLTF 3D Studio">◇ 3D Studio</button>
       <button id="btnOpenHire" class="btn btn-primary btn-sm" onclick="openHireModal()">+ Hire Agent</button>
       <button id="btnFocusMission" class="btn btn-primary btn-sm">✦ New Mission</button>
     </div>
@@ -1728,6 +1729,27 @@
     </div>
   </div>
 
+  <!-- 3D Studio Modal -->
+  <div id="studio3DModal" class="modal-backdrop">
+    <div class="modal-card" style="max-width:760px;">
+      <div class="modal-header"><span class="modal-title">◇ GLTF / GLB 3D STUDIO</span><button id="btnClose3DStudio" class="btn btn-sm">✕</button></div>
+      <div style="display:grid;grid-template-columns:1fr 240px;gap:12px;">
+        <div style="background:#050912;border:1px solid var(--border-strong);border-radius:8px;min-height:360px;padding:8px;">
+          <model-viewer id="model3DViewer" camera-controls auto-rotate shadow-intensity="1" exposure="1" style="width:100%;height:340px;background:radial-gradient(circle,#26334d,#080c16);" alt="3D model preview"></model-viewer>
+          <div id="studio3DStatus" style="color:#94a3b8;font:10px var(--font-mono);margin-top:6px;">Load a GLB/GLTF model to preview it.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <label class="form-label">Model file (.glb/.gltf)<input id="model3DFile" class="form-input" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" /></label>
+          <label class="form-label">Scale<input id="model3DScale" class="form-input" type="number" value="1" min="0.05" max="20" step="0.05" /></label>
+          <label class="form-label">Y rotation<input id="model3DRotation" class="form-input" type="number" value="0" min="-360" max="360" step="15" /></label>
+          <label class="form-label">Floor height<input id="model3DHeight" class="form-input" type="number" value="0" step="0.01" /></label>
+          <button id="btnApply3DModel" type="button" class="btn btn-primary">Apply to Office</button>
+          <small style="color:#64748b;line-height:1.4;">Models use a feet/floor anchor. Apply stores the model configuration for the selected agent or object.</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Settings Modal -->
   <div id="settingsModal" class="modal-backdrop">
     <div class="modal-card" style="max-width:520px;">
@@ -1864,6 +1886,7 @@
        5. 16-BIT PIXEL ENGINE, RETRO AUDIO SYNTH & AgentHQ ORCHESTRATOR
   ====================================================================== -->
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
   <script>
     (function () {
       'use strict';
@@ -2535,6 +2558,16 @@
         floorListContainer: document.getElementById('floorListContainer'),
         btnAddFloorLevel: document.getElementById('btnAddFloorLevel'),
         btnOpenSettings: document.getElementById('btnOpenSettings'),
+        btnOpen3DStudio: document.getElementById('btnOpen3DStudio'),
+        studio3DModal: document.getElementById('studio3DModal'),
+        btnClose3DStudio: document.getElementById('btnClose3DStudio'),
+        model3DViewer: document.getElementById('model3DViewer'),
+        model3DFile: document.getElementById('model3DFile'),
+        model3DScale: document.getElementById('model3DScale'),
+        model3DRotation: document.getElementById('model3DRotation'),
+        model3DHeight: document.getElementById('model3DHeight'),
+        btnApply3DModel: document.getElementById('btnApply3DModel'),
+        studio3DStatus: document.getElementById('studio3DStatus'),
         settingsModal: document.getElementById('settingsModal'),
         btnCloseSettings: document.getElementById('btnCloseSettings'),
         btnCancelSettings: document.getElementById('btnCancelSettings'),
@@ -6731,6 +6764,27 @@
       });
       els.btnCloseSettings.addEventListener('click', () => els.settingsModal.classList.remove('open'));
       els.btnCancelSettings.addEventListener('click', () => els.settingsModal.classList.remove('open'));
+
+      // Lightweight GLB/GLTF studio. model-viewer handles orbit controls and
+      // keeps this first version independent from the canvas renderer.
+      els.btnOpen3DStudio?.addEventListener('click', () => els.studio3DModal.classList.add('open'));
+      els.btnClose3DStudio?.addEventListener('click', () => els.studio3DModal.classList.remove('open'));
+      els.model3DFile?.addEventListener('change', () => {
+        const file = els.model3DFile.files?.[0];
+        if (!file) return;
+        if (!/\.(glb|gltf)$/i.test(file.name)) { els.studio3DStatus.textContent = 'Please choose a .glb or .gltf file.'; return; }
+        const url = URL.createObjectURL(file);
+        els.model3DViewer.src = url;
+        els.studio3DStatus.textContent = `${file.name} loaded. Adjust the transform, then apply it.`;
+      });
+      els.btnApply3DModel?.addEventListener('click', () => {
+        const file = els.model3DFile.files?.[0];
+        if (!file) { els.studio3DStatus.textContent = 'Choose a GLB/GLTF file first.'; return; }
+        const config = { name:file.name, scale:Number(els.model3DScale.value) || 1, rotationY:Number(els.model3DRotation.value) || 0, floorHeight:Number(els.model3DHeight.value) || 0, anchor:'floor-base', floorId:currentFloorId };
+        localStorage.setItem(`agenthq_3d_model_${currentFloorId}`, JSON.stringify(config));
+        els.studio3DStatus.textContent = `Saved ${file.name} with floor-base anchor. Office integration slot is ready.`;
+        showToast('3D model configuration saved.');
+      });
 
       els.settingsForm.addEventListener('submit', (e) => {
         e.preventDefault();
