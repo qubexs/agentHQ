@@ -5715,12 +5715,12 @@
             ctx.globalAlpha = alpha;
             ctx.imageSmoothingEnabled = false;
             ctx.translate(Math.round(p.x), Math.round(p.y));
-            // Object orientation is world-relative. As the isometric camera turns,
-            // rotate the sprite by the same quarter-turn so desks, chairs and props
-            // keep the same orientation as the floor instead of facing the screen.
-            const cameraQuarterTurns = Math.round(state.camera.angle / (Math.PI / 2));
-            const worldRotation = (rotation || 0) * Math.PI / 2;
-            ctx.rotate(worldRotation + cameraQuarterTurns * Math.PI / 2);
+            // These are already isometric cut-out sprites. Keep their artwork
+            // screen-facing while the world position follows the camera. Rotate
+            // only the object's own quarter-turn, around its floor anchor.
+            // The anchor is the centre of the footprint at z=0, never the image
+            // centre, so the object stays planted on the floor when rotated.
+            ctx.rotate((rotation || 0) * Math.PI / 2);
             ctx.drawImage(entry.image, Math.round(-width / 2), Math.round(-height), width, height);
             if (objectId && state.selectedObjectId === objectId) {
               ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2; ctx.strokeRect(-width / 2 - 3, -height - 3, width + 6, height + 6);
