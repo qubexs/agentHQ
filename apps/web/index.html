@@ -4243,6 +4243,9 @@
       }
 
       function drawDeskAndMonitors(desk, isOccupied, isWorking, now) {
+        return PA.drawDesk(desk, isOccupied, isWorking, now);
+      }
+      function drawDeskAndMonitorsLegacy(desk, isOccupied, isWorking, now) {
         const { x, y, monitorColor } = desk;
         const mood = LIGHTING_MODES[state.lightingIdx];
         const wood = '#6b4c35';
@@ -4364,6 +4367,9 @@
       }
 
       function drawChair(desk) {
+        return PA.drawChairTop(desk);
+      }
+      function drawChairLegacy(desk) {
         const { seatX, seatY } = desk;
         pxRect(seatX - 15, seatY - 4, 30, 16, '#1e293b');
         pxRect(seatX - 13, seatY + 6, 26, 10, '#334155');
@@ -4410,245 +4416,1370 @@
         return null;
       }
 
+      // ====================================================================
+      // PRO ART LAYER — PART 1: CHARACTER SPRITES
+      // Hue-shifted 5-tone ramps, per-pixel volume shading, selective
+      // (colour-matched) outlines, 4 facing directions, real walk / sit /
+      // type / sip / gesture cycles. Frames are rendered once into small
+      // offscreen canvases and cached, so drawing an agent is a drawImage.
+      // ====================================================================
+      const PA = {};
+      PA.SPR_W = 40;
+      PA.SPR_H = 64;
+      PA.FEET_X = 20;
+      PA.FEET_Y = 58; // logical y of the soles
+      PA.spriteCache = new Map();
+
+      PA.hex2rgb = (h) => {
+        if (typeof h !== 'string' || h[0] !== '#') return [136, 146, 160];
+        let s = h.slice(1);
+        if (s.length === 3) s = s.split('').map((c) => c + c).join('');
+        const n = parseInt(s.slice(0, 6), 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      };
+      PA.mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+      PA.css = (c, a) => (a === undefined
+        ? `rgb(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])})`
+        : `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${a})`);
+      PA.rgb2hex = (c) => '#' + c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+      PA.mul = (hex, f) => {
+        const c = PA.hex2rgb(hex);
+        return PA.css([Math.min(255, c[0] * f), Math.min(255, c[1] * f), Math.min(255, c[2] * f)]);
+      };
+      PA.rampCache = new Map();
+      PA.ramp = (hex) => {
+        if (PA.rampCache.has(hex)) return PA.rampCache.get(hex);
+        const c = PA.hex2rgb(hex);
+        const warm = [255, 240, 200];
+        const cool = [38, 30, 84];
+        const R = {
+          h: PA.css(PA.mix(c, warm, 0.66)),
+          l: PA.css(PA.mix(c, warm, 0.30)),
+          b: PA.css(c),
+          s: PA.css(PA.mix(c, cool, 0.30)),
+          d: PA.css(PA.mix(c, cool, 0.56)),
+          bounce: PA.css(PA.mix(c, [120, 190, 255], 0.28)),
+          raw: c
+        };
+        PA.rampCache.set(hex, R);
+        return R;
+      };
+
+      // Shaded ellipsoid (light from upper-left, cool bounce light on the rim)
+      PA.blob = (g, cx, cy, rx, ry, R, o = {}) => {
+        const lx = -0.55, ly = -0.62, lz = 0.56;
+        for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
+          for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+            const nx = (x + 0.5 - cx) / rx, ny = (y + 0.5 - cy) / ry;
+            const d = nx * nx + ny * ny;
+            if (d > 1) continue;
+            if (o.clip && !o.clip(x, y)) continue;
+            const nz = Math.sqrt(1 - d);
+            const l = nx * lx + ny * ly + nz * lz;
+            let c = l > 0.98 ? R.h : l > 0.74 ? R.l : l > 0.34 ? R.b : l > 0.0 ? R.s : R.d;
+            if (o.rim !== false && d > 0.66 && nx * lx + ny * ly < -0.45 && l < 0.2) c = R.bounce;
+            g.fillStyle = c;
+            g.fillRect(x, y, 1, 1);
+          }
+        }
+      };
+      // Shaded rounded slab (left-lit, darker toward bottom-right)
+      PA.slab = (g, x, y, w, h, r, R, o = {}) => {
+        for (let yy = 0; yy < h; yy++) {
+          for (let xx = 0; xx < w; xx++) {
+            const dx = Math.min(xx, w - 1 - xx), dy = Math.min(yy, h - 1 - yy);
+            if (dx < r && dy < r && (r - dx - 0.5) ** 2 + (r - dy - 0.5) ** 2 > r * r) continue;
+            if (o.clip && !o.clip(x + xx, y + yy)) continue;
+            const u = (xx + 0.5) / w, v = (yy + 0.5) / h;
+            const l = (0.5 - u) * 1.15 + (0.5 - v) * 0.5 + 0.34 + (o.bias || 0);
+            g.fillStyle = l > 0.86 ? R.l : l > 0.36 ? R.b : l > 0.04 ? R.s : R.d;
+            g.fillRect(x + xx, y + yy, 1, 1);
+          }
+        }
+      };
+      PA.rect = (g, x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+      PA.px = (g, x, y, c) => { g.fillStyle = c; g.fillRect(x, y, 1, 1); };
+
+      // Draws headwear / glasses. `dir` is down | up | right.
+      PA.accessory = (g, ag, dir, cx, hy, look, blink) => {
+        const acc = ag.accessory;
+        const f = dir === 'right' ? 1 : 0;
+        if (acc === 'glasses' && dir !== 'up') {
+          const fr = '#f59e0b', fr2 = '#b45309', lens = 'rgba(190,225,255,0.38)';
+          if (dir === 'down') {
+            [-7, 2].forEach((ox) => {
+              PA.rect(g, cx + ox + look, hy + 8, 6, 5, lens);
+              PA.rect(g, cx + ox + look, hy + 8, 6, 1, fr); PA.rect(g, cx + ox + look, hy + 12, 6, 1, fr2);
+              PA.rect(g, cx + ox + look, hy + 8, 1, 5, fr); PA.rect(g, cx + ox + 5 + look, hy + 8, 1, 5, fr2);
+              PA.px(g, cx + ox + 1 + look, hy + 9, 'rgba(255,255,255,0.75)');
+            });
+            PA.rect(g, cx - 1 + look, hy + 9, 2, 1, fr);
+          } else {
+            PA.rect(g, cx + 2, hy + 8, 6, 5, lens);
+            PA.rect(g, cx + 2, hy + 8, 6, 1, fr); PA.rect(g, cx + 2, hy + 12, 6, 1, fr2);
+            PA.rect(g, cx + 2, hy + 8, 1, 5, fr); PA.rect(g, cx + 7, hy + 8, 1, 5, fr2);
+            PA.rect(g, cx - 6, hy + 9, 8, 1, fr2);
+          }
+        } else if (acc === 'monocle' && dir !== 'up') {
+          const bx = dir === 'down' ? cx + 2 + look : cx + 3;
+          PA.rect(g, bx, hy + 7, 7, 1, '#d97706'); PA.rect(g, bx, hy + 13, 7, 1, '#92400e');
+          PA.rect(g, bx, hy + 7, 1, 7, '#d97706'); PA.rect(g, bx + 6, hy + 7, 1, 7, '#92400e');
+          PA.rect(g, bx + 1, hy + 8, 5, 5, 'rgba(190,225,255,0.34)');
+          for (let i = 0; i < 7; i++) PA.px(g, bx + 6, hy + 14 + i, '#fbbf24');
+        } else if (acc === 'visor') {
+          const x0 = dir === 'down' ? cx - 11 : dir === 'up' ? cx - 11 : cx - 8;
+          const w = dir === 'right' ? 20 : 22;
+          if (dir !== 'up') {
+            PA.rect(g, x0, hy + 7, w, 6, 'rgba(34,211,238,0.58)');
+            PA.rect(g, x0, hy + 7, w, 1, 'rgba(236,254,255,0.95)');
+            PA.rect(g, x0, hy + 12, w, 1, 'rgba(8,145,178,0.9)');
+            PA.rect(g, x0 + 3, hy + 9, 5, 1, 'rgba(255,255,255,0.6)');
+          }
+          PA.rect(g, cx - 12, hy + 6, 24, 1, '#0f172a');
+        } else if (acc === 'headset') {
+          const band = '#0e7490', cup = '#06b6d4', hi = '#67e8f9';
+          for (let a = Math.PI; a <= Math.PI * 2 + 0.01; a += 0.09) {
+            PA.px(g, Math.round(cx + Math.cos(a) * 11.4), Math.round(hy + 6 + Math.sin(a) * 11), band);
+            PA.px(g, Math.round(cx + Math.cos(a) * 10.4), Math.round(hy + 6 + Math.sin(a) * 10), hi);
+          }
+          if (dir === 'right') {
+            PA.slab(g, cx - 6, hy + 8, 5, 8, 2, PA.ramp('#06b6d4'));
+            PA.rect(g, cx + 4, hy + 16, 6, 1, '#38bdf8'); PA.px(g, cx + 10, hy + 15, '#0ea5e9');
+          } else {
+            PA.slab(g, cx - 13, hy + 8, 4, 8, 1, PA.ramp('#06b6d4'));
+            PA.slab(g, cx + 9, hy + 8, 4, 8, 1, PA.ramp('#06b6d4'));
+            if (dir === 'down') { PA.rect(g, cx + 5, hy + 15, 6, 1, '#38bdf8'); PA.rect(g, cx + 4, hy + 16, 2, 2, '#0ea5e9'); }
+          }
+        } else if (acc === 'cap') {
+          const R = PA.ramp('#0284c7');
+          PA.blob(g, cx, hy + 3, 11.2, 7.5, R, { clip: (x, y) => y < hy + 6 });
+          PA.rect(g, cx - 11, hy + 5, 22, 1, PA.ramp('#0284c7').s);
+          if (dir === 'down') { PA.slab(g, cx - 10, hy + 5, 20, 3, 1, PA.ramp('#075985')); PA.rect(g, cx - 2, hy - 1, 4, 3, '#fbbf24'); }
+          if (dir === 'right') PA.slab(g, cx + 2, hy + 5, 13, 3, 1, PA.ramp('#075985'));
+        } else if (acc === 'beret') {
+          PA.blob(g, cx + (f ? 0 : 1), hy + 1.5, 12, 5, PA.ramp('#7e22ce'), {});
+          PA.rect(g, cx + 6, hy - 4, 2, 2, '#fbbf24');
+        } else if (acc === 'beanie') {
+          PA.blob(g, cx, hy + 2, 11, 8, PA.ramp('#f97316'), { clip: (x, y) => y < hy + 5 });
+          PA.slab(g, cx - 11, hy + 4, 22, 3, 1, PA.ramp('#c2410c'));
+          for (let i = 0; i < 22; i += 3) PA.rect(g, cx - 11 + i, hy + 4, 1, 3, 'rgba(0,0,0,0.18)');
+          PA.blob(g, cx, hy - 5, 3, 3, PA.ramp('#fed7aa'));
+        } else if (acc === 'crown') {
+          const R = PA.ramp('#f59e0b');
+          PA.slab(g, cx - 9, hy + 2, 18, 4, 1, R);
+          [[-9, 4], [-4, 6], [0, 7], [4, 6], [8, 4]].forEach(([ox, hgt]) => {
+            PA.rect(g, cx + ox - (ox === 8 ? 1 : 0), hy + 2 - hgt + 1, 2, hgt, ox < 0 ? R.l : R.b);
+            PA.px(g, cx + ox, hy + 2 - hgt + 1, '#fff7c2');
+          });
+          PA.px(g, cx - 1, hy + 4, '#ef4444'); PA.px(g, cx, hy + 4, '#fca5a5'); PA.px(g, cx - 5, hy + 4, '#38bdf8'); PA.px(g, cx + 4, hy + 4, '#34d399');
+        }
+      };
+
+      // ---- facing: down (front) -------------------------------------------------
+      PA.drawFront = (g, ag, P) => {
+        const { cx, pose, f, blink, look } = P;
+        const skin = PA.ramp(ag.skinColor), cloth = PA.ramp(ag.primaryColor), trim = PA.ramp(ag.secondaryColor || '#fde047');
+        const hair = PA.ramp(ag.hairColor), pants = PA.ramp(PA.rgb2hex(PA.mix(cloth.raw, [34, 40, 66], 0.62)));
+        const shoe = PA.ramp('#1b2236');
+        const seated = pose === 'sit';
+        const walk = pose === 'walk';
+        const ph = (f / 6) * Math.PI * 2;
+        const bob = walk ? -Math.round(Math.abs(Math.sin(ph)) * 1.3) : 0;
+        const breath = pose === 'idle' ? (f % 2) : 0;
+        const sy = seated ? 5 : 0; // seated: lower everything
+        const gy = PA.FEET_Y;
+
+        // legs
+        const lSw = walk ? Math.sin(ph) : 0, rSw = walk ? -Math.sin(ph) : 0;
+        const legTop = gy - 17 + sy;
+        if (seated) {
+          PA.slab(g, cx - 7, legTop + 2, 6, 7, 2, pants); PA.slab(g, cx + 1, legTop + 2, 6, 7, 2, pants);
+          PA.slab(g, cx - 8, legTop + 8, 7, 5, 2, shoe); PA.slab(g, cx + 1, legTop + 8, 7, 5, 2, shoe);
+        } else {
+          const lh = Math.round(9 - Math.max(0, -lSw) * 2), rh = Math.round(9 - Math.max(0, -rSw) * 2);
+          PA.slab(g, cx - 6, legTop, 5, lh, 1, pants); PA.slab(g, cx + 1, legTop, 5, rh, 1, pants);
+          PA.slab(g, cx - 7, legTop + lh - 1 + Math.round(Math.max(0, lSw) * 0), 7, 4, 2, shoe);
+          PA.slab(g, cx, legTop + rh - 1, 7, 4, 2, shoe);
+          PA.rect(g, cx - 7, legTop + lh + 2, 7, 1, shoe.d); PA.rect(g, cx, legTop + rh + 2, 7, 1, shoe.d);
+        }
+        const bodyY = gy - 30 + sy + bob; // torso top
+        // arms (behind torso edges)
+        const typing = pose === 'sit' && P.typing;
+        const armSwL = walk ? Math.round(rSw * 2) : 0, armSwR = walk ? Math.round(lSw * 2) : 0;
+        const lUp = typing ? (f % 2 ? -1 : 0) : 0, rUp = typing ? (f % 2 ? 0 : -1) : 0;
+        const meet = pose === 'meet';
+        const coffee = pose === 'coffee';
+        // left arm
+        PA.slab(g, cx - 11, bodyY + 2 + armSwL, 4, 10, 2, cloth);
+        PA.slab(g, cx - 11, bodyY + 10 + armSwL + (typing ? -2 + lUp : 0), 4, 3, 1, skin);
+        // torso
+        PA.slab(g, cx - 8, bodyY, 16, 13, 3, cloth, {});
+        // collar / shirt / tie
+        PA.rect(g, cx - 2, bodyY, 4, 7, trim.b); PA.rect(g, cx - 2, bodyY, 1, 7, trim.l);
+        PA.rect(g, cx - 4, bodyY, 2, 4, cloth.d); PA.rect(g, cx + 2, bodyY, 2, 4, cloth.s);
+        PA.px(g, cx - 1, bodyY + 8, trim.d); PA.px(g, cx - 1, bodyY + 10, trim.d);
+        PA.rect(g, cx - 7, bodyY + 11, 14, 1, cloth.d);
+        PA.px(g, cx + 4, bodyY + 5, trim.l); PA.px(g, cx + 5, bodyY + 5, trim.b);
+        // right arm (may hold mug / wave)
+        if (coffee) {
+          const sip = P.sip ? -5 : 0;
+          PA.slab(g, cx + 7, bodyY + 3 + sip, 4, 7, 2, cloth);
+          PA.slab(g, cx + 6, bodyY + 8 + sip, 4, 3, 1, skin);
+          PA.rect(g, cx + 6, bodyY + 4 + sip, 6, 6, '#f8fafc'); PA.rect(g, cx + 6, bodyY + 4 + sip, 6, 1, '#e2e8f0');
+          PA.rect(g, cx + 7, bodyY + 5 + sip, 4, 2, '#78350f'); PA.rect(g, cx + 12, bodyY + 5 + sip, 1, 3, '#cbd5e1');
+          if (f % 2 === 0) { PA.px(g, cx + 8, bodyY + 1 + sip, 'rgba(255,255,255,0.7)'); PA.px(g, cx + 9, bodyY - 1 + sip, 'rgba(255,255,255,0.45)'); }
+        } else if (meet) {
+          const up = f % 4 < 2 ? -6 : -3;
+          PA.slab(g, cx + 7, bodyY + 3 + up, 4, 8, 2, cloth);
+          PA.slab(g, cx + 7, bodyY + 1 + up, 4, 3, 1, skin);
+        } else {
+          PA.slab(g, cx + 7, bodyY + 2 + armSwR, 4, 10, 2, cloth);
+          PA.slab(g, cx + 7, bodyY + 10 + armSwR + (typing ? -2 + rUp : 0), 4, 3, 1, skin);
+        }
+        // neck + head
+        const hy = bodyY - 19 - breath;
+        PA.rect(g, cx - 2, bodyY - 2, 4, 3, skin.s);
+        PA.blob(g, cx - 10, hy + 12, 2, 2.6, skin, { rim: false }); PA.blob(g, cx + 10, hy + 12, 2, 2.6, skin, { rim: false });
+        PA.blob(g, cx, hy + 11, 10, 9.6, skin);
+        // chin shadow
+        PA.rect(g, cx - 5, hy + 20, 10, 1, skin.s);
+        // hair: back mass + cap + fringe + sideburns
+        PA.blob(g, cx, hy + 7, 11.4, 8.8, hair, { clip: (x, y) => y < hy + 9 + (((x * 5) % 3 + 3) % 3) - (Math.abs(x - cx) < 3 ? 1 : 0) });
+        PA.rect(g, cx - 11, hy + 8, 3, 8, hair.b); PA.rect(g, cx - 11, hy + 8, 1, 8, hair.l);
+        PA.rect(g, cx + 8, hy + 8, 3, 8, hair.s); PA.rect(g, cx + 10, hy + 8, 1, 8, hair.d);
+        for (let i = 0; i < 4; i++) PA.px(g, cx - 6 + i * 3, hy + 2 + (i % 2), hair.h);
+        // face
+        const ey = hy + 10;
+        PA.rect(g, cx - 7 + look, ey - 3, 4, 1, hair.s); PA.rect(g, cx + 3 + look, ey - 3, 4, 1, hair.s);
+        if (!blink) {
+          [-6, 2].forEach((ox) => {
+            PA.rect(g, cx + ox + look, ey, 4, 5, '#f8fafc');
+            PA.rect(g, cx + ox + 1 + look, ey, 3, 5, '#1d2742');
+            PA.rect(g, cx + ox + 1 + look, ey + 3, 3, 2, '#3b4f86');
+            PA.px(g, cx + ox + 1 + look, ey + 1, '#ffffff'); PA.px(g, cx + ox + 2 + look, ey + 4, 'rgba(255,255,255,0.55)');
+            PA.rect(g, cx + ox + look, ey - 1, 4, 1, skin.d);
+          });
+        } else {
+          [-6, 2].forEach((ox) => { PA.rect(g, cx + ox + look, ey + 3, 4, 1, '#1d2742'); });
+        }
+        PA.px(g, cx + look, ey + 6, skin.s);
+        PA.rect(g, cx - 8 + look, ey + 5, 2, 1, 'rgba(244,114,182,0.5)'); PA.rect(g, cx + 6 + look, ey + 5, 2, 1, 'rgba(244,114,182,0.5)');
+        const my = ey + 8;
+        if (pose === 'sit' && typing) { PA.rect(g, cx - 1 + look, my, 3, 2, '#7a2d27'); PA.px(g, cx + look, my, '#c4574c'); }
+        else if (coffee) { PA.rect(g, cx - 1 + look, my, 3, 1, '#7a2d27'); PA.px(g, cx - 2 + look, my - 1, '#7a2d27'); PA.px(g, cx + 2 + look, my - 1, '#7a2d27'); }
+        else { PA.rect(g, cx - 2 + look, my, 5, 1, '#9b3b32'); PA.px(g, cx - 3 + look, my - 1, '#9b3b32'); PA.px(g, cx + 3 + look, my - 1, '#9b3b32'); }
+        PA.accessory(g, ag, 'down', cx, hy, look, blink);
+      };
+
+      // ---- facing: up (back) ----------------------------------------------------
+      PA.drawBack = (g, ag, P) => {
+        const { cx, pose, f } = P;
+        const skin = PA.ramp(ag.skinColor), cloth = PA.ramp(ag.primaryColor), hair = PA.ramp(ag.hairColor);
+        const pantsHex = '#' + PA.hex2rgb(ag.primaryColor).map((v) => Math.round(v * 0.38 + 22).toString(16).padStart(2, '0')).join('');
+        const pants = PA.ramp(pantsHex), shoe = PA.ramp('#1b2236');
+        const seated = pose === 'sit', walk = pose === 'walk';
+        const ph = (f / 6) * Math.PI * 2;
+        const bob = walk ? -Math.round(Math.abs(Math.sin(ph)) * 1.3) : 0;
+        const breath = pose === 'idle' ? (f % 2) : 0;
+        const sy = seated ? 5 : 0, gy = PA.FEET_Y;
+        const lSw = walk ? Math.sin(ph) : 0, rSw = walk ? -Math.sin(ph) : 0;
+        const legTop = gy - 17 + sy;
+        if (seated) {
+          PA.slab(g, cx - 7, legTop + 2, 6, 7, 2, pants); PA.slab(g, cx + 1, legTop + 2, 6, 7, 2, pants);
+          PA.slab(g, cx - 8, legTop + 7, 7, 4, 2, shoe); PA.slab(g, cx + 1, legTop + 7, 7, 4, 2, shoe);
+        } else {
+          const lh = Math.round(9 - Math.max(0, lSw) * 2), rh = Math.round(9 - Math.max(0, rSw) * 2);
+          PA.slab(g, cx - 6, legTop, 5, lh, 1, pants); PA.slab(g, cx + 1, legTop, 5, rh, 1, pants);
+          PA.slab(g, cx - 7, legTop + lh - 1, 7, 4, 2, shoe); PA.slab(g, cx, legTop + rh - 1, 7, 4, 2, shoe);
+        }
+        const bodyY = gy - 30 + sy + bob;
+        const typing = pose === 'sit' && P.typing;
+        const aL = walk ? Math.round(rSw * 2) : 0, aR = walk ? Math.round(lSw * 2) : 0;
+        PA.slab(g, cx - 11, bodyY + 2 + aL + (typing && f % 2 ? -1 : 0), 4, 10, 2, cloth);
+        PA.slab(g, cx - 11, bodyY + 10 + aL, 4, 3, 1, skin);
+        PA.slab(g, cx + 7, bodyY + 2 + aR + (typing && !(f % 2) ? -1 : 0), 4, 10, 2, cloth);
+        PA.slab(g, cx + 7, bodyY + 10 + aR, 4, 3, 1, skin);
+        PA.slab(g, cx - 8, bodyY, 16, 13, 3, cloth);
+        PA.rect(g, cx - 6, bodyY + 1, 12, 1, cloth.l); PA.rect(g, cx - 1, bodyY + 2, 2, 9, cloth.s);
+        PA.rect(g, cx - 7, bodyY + 11, 14, 1, cloth.d);
+        const hy = bodyY - 19 - breath;
+        PA.rect(g, cx - 2, bodyY - 2, 4, 3, skin.s);
+        PA.blob(g, cx - 10, hy + 12, 2, 2.6, skin, { rim: false }); PA.blob(g, cx + 10, hy + 12, 2, 2.6, skin, { rim: false });
+        PA.blob(g, cx, hy + 11, 10, 9.6, hair);
+        PA.blob(g, cx, hy + 12, 11, 10, hair, { clip: (x, y) => y < hy + 19 });
+        for (let i = 0; i < 5; i++) PA.rect(g, cx - 7 + i * 3, hy + 5 + (i % 2) * 3, 1, 6, hair.s);
+        PA.rect(g, cx - 4, hy + 4, 6, 1, hair.h);
+        PA.accessory(g, ag, 'up', cx, hy, 0, false);
+      };
+
+      // ---- facing: right (side; left is mirrored on draw) -----------------------
+      PA.drawSide = (g, ag, P) => {
+        const { cx, pose, f, blink } = P;
+        const skin = PA.ramp(ag.skinColor), cloth = PA.ramp(ag.primaryColor), trim = PA.ramp(ag.secondaryColor || '#fde047'), hair = PA.ramp(ag.hairColor);
+        const pantsHex = '#' + PA.hex2rgb(ag.primaryColor).map((v) => Math.round(v * 0.38 + 22).toString(16).padStart(2, '0')).join('');
+        const pants = PA.ramp(pantsHex), shoe = PA.ramp('#1b2236');
+        const seated = pose === 'sit', walk = pose === 'walk';
+        const ph = (f / 6) * Math.PI * 2;
+        const bob = walk ? -Math.round(Math.abs(Math.sin(ph)) * 1.3) : 0;
+        const breath = pose === 'idle' ? (f % 2) : 0;
+        const sy = seated ? 5 : 0, gy = PA.FEET_Y;
+        const legTop = gy - 17 + sy;
+        const swing = (s) => Math.round(s * 4);
+        const lx = walk ? swing(Math.sin(ph)) : 0, rx = walk ? swing(-Math.sin(ph)) : 0;
+        const lLift = walk ? Math.round(Math.max(0, -Math.cos(ph)) * 2) : 0, rLift = walk ? Math.round(Math.max(0, Math.cos(ph)) * 2) : 0;
+        // far leg first (darker), then near leg
+        const leg = (ox, lift, far) => {
+          const R = far ? PA.ramp('#' + PA.hex2rgb(ag.primaryColor).map((v) => Math.round(v * 0.28 + 14).toString(16).padStart(2, '0')).join('')) : pants;
+          if (seated) {
+            PA.slab(g, cx - 3, legTop + 2, 11, 5, 2, R); PA.slab(g, cx + 4 + (far ? 1 : 0), legTop + 5, 5, 8, 2, R);
+            PA.slab(g, cx + 4 + (far ? 1 : 0), legTop + 11, 8, 4, 2, shoe);
+          } else {
+            PA.slab(g, cx - 3 + ox, legTop, 6, 10 - lift, 1, R);
+            PA.slab(g, cx - 3 + ox, legTop + 9 - lift, 9, 4, 2, shoe);
+          }
+        };
+        leg(rx, rLift, true); leg(lx, lLift, false);
+        const bodyY = gy - 30 + sy + bob;
+        // far arm
+        const typing = pose === 'sit' && P.typing;
+        const aSw = walk ? Math.round(Math.sin(ph) * 3) : 0;
+        PA.slab(g, cx - 2 - aSw, bodyY + 3, 4, 10, 2, PA.ramp(PA.rgb2hex(PA.mix(cloth.raw, [20, 18, 50], 0.35))));
+        PA.slab(g, cx - 6, bodyY, 12, 13, 3, cloth);
+        PA.rect(g, cx - 5, bodyY + 11, 11, 1, cloth.d);
+        PA.rect(g, cx + 4, bodyY + 2, 2, 8, trim.b);
+        // near arm
+        const coffee = pose === 'coffee', meet = pose === 'meet';
+        if (coffee) {
+          const sip = P.sip ? -5 : 0;
+          PA.slab(g, cx - 1, bodyY + 4 + sip, 4, 7, 2, cloth); PA.slab(g, cx + 3, bodyY + 7 + sip, 3, 3, 1, skin);
+          PA.rect(g, cx + 4, bodyY + 3 + sip, 5, 6, '#f8fafc'); PA.rect(g, cx + 5, bodyY + 4 + sip, 3, 2, '#78350f'); PA.rect(g, cx + 3, bodyY + 4 + sip, 1, 3, '#cbd5e1');
+        } else if (meet) {
+          const up = f % 4 < 2 ? -3 : 0;
+          PA.slab(g, cx, bodyY + 3 + up, 4, 7, 2, cloth); PA.slab(g, cx + 3, bodyY + 3 + up, 3, 3, 1, skin);
+        } else if (typing) {
+          PA.slab(g, cx - 1, bodyY + 3, 4, 6, 2, cloth); PA.slab(g, cx + 2, bodyY + 7 + (f % 2 ? 1 : 0), 5, 3, 1, skin);
+        } else {
+          PA.slab(g, cx - 2 + aSw, bodyY + 3, 4, 10, 2, cloth); PA.slab(g, cx - 2 + aSw, bodyY + 11, 4, 3, 1, skin);
+        }
+        const hy = bodyY - 19 - breath;
+        PA.rect(g, cx - 1, bodyY - 2, 4, 3, skin.s);
+        PA.blob(g, cx + 1, hy + 11, 9, 9.6, skin);
+        PA.blob(g, cx - 3, hy + 12, 2, 2.6, skin, { rim: false });
+        PA.px(g, cx - 3, hy + 12, skin.d);
+        // nose
+        PA.rect(g, cx + 9, hy + 13, 2, 2, skin.l); PA.px(g, cx + 10, hy + 14, skin.s);
+        // hair (covers back + top, fringe)
+        PA.blob(g, cx - 1, hy + 8, 11, 9.2, hair, { clip: (x, y) => x < cx - 1 || y < hy + 6 + (((x * 5) % 2 + 2) % 2) });
+        PA.rect(g, cx - 10, hy + 8, 6, 8, hair.b); PA.rect(g, cx - 10, hy + 8, 1, 8, hair.l);
+        PA.rect(g, cx - 4, hy + 8, 2, 4, hair.s);
+        // eye + brow + mouth
+        PA.rect(g, cx + 3, hy + 7, 4, 1, hair.s);
+        if (!blink) {
+          PA.rect(g, cx + 4, hy + 10, 4, 5, '#f8fafc'); PA.rect(g, cx + 5, hy + 10, 3, 5, '#1d2742'); PA.rect(g, cx + 5, hy + 13, 3, 2, '#3b4f86');
+          PA.px(g, cx + 5, hy + 11, '#ffffff');
+        } else PA.rect(g, cx + 4, hy + 13, 4, 1, '#1d2742');
+        PA.rect(g, cx + 3, hy + 15, 2, 1, 'rgba(244,114,182,0.5)');
+        PA.rect(g, cx + 6, hy + 18, 3, 1, '#9b3b32');
+        PA.accessory(g, ag, 'right', cx, hy, 0, blink);
+      };
+
+      // Selective outline: every transparent pixel touching the sprite takes a
+      // dark, hue-shifted version of the colour it borders (no pure black).
+      PA.outline = (cv) => {
+        const g = cv.getContext('2d');
+        const W = cv.width, H = cv.height;
+        const img = g.getImageData(0, 0, W, H), d = img.data;
+        const out = new Uint8ClampedArray(d);
+        const A = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : d[(y * W + x) * 4 + 3]);
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const i = (y * W + x) * 4;
+            if (d[i + 3] > 200) continue;
+            let n = null;
+            if (A(x, y + 1) > 200) n = ((y + 1) * W + x) * 4;
+            else if (A(x - 1, y) > 200) n = (y * W + x - 1) * 4;
+            else if (A(x + 1, y) > 200) n = (y * W + x + 1) * 4;
+            else if (A(x, y - 1) > 200) n = ((y - 1) * W + x) * 4;
+            if (n === null) continue;
+            out[i] = d[n] * 0.30 + 8; out[i + 1] = d[n + 1] * 0.26 + 6; out[i + 2] = d[n + 2] * 0.34 + 26; out[i + 3] = 255;
+          }
+        }
+        g.putImageData(new ImageData(out, W, H), 0, 0);
+      };
+
+      PA.spriteKey = (ag, dir, pose, f, blink, look, extra) =>
+        [ag.primaryColor, ag.secondaryColor, ag.skinColor, ag.hairColor, ag.accessory, dir, pose, f, blink ? 1 : 0, look, extra].join('|');
+
+      PA.getSprite = (ag, dir, pose, f, blink, look, extra) => {
+        const key = PA.spriteKey(ag, dir, pose, f, blink, look, extra);
+        let cv = PA.spriteCache.get(key);
+        if (cv) return cv;
+        if (PA.spriteCache.size > 900) PA.spriteCache.clear();
+        cv = document.createElement('canvas');
+        cv.width = PA.SPR_W; cv.height = PA.SPR_H;
+        const g = cv.getContext('2d');
+        g.imageSmoothingEnabled = false;
+        const P = { cx: PA.FEET_X, pose, f, blink, look, typing: extra === 'type', sip: extra === 'sip' };
+        if (dir === 'up') PA.drawBack(g, ag, P);
+        else if (dir === 'down') PA.drawFront(g, ag, P);
+        else PA.drawSide(g, ag, P);
+        PA.outline(cv);
+        PA.spriteCache.set(key, cv);
+        return cv;
+      };
+
+      PA.seatOf = (ag) => DESKS.find((d) => Math.hypot(ag.x - d.seatX, ag.y - d.seatY) < 16) || null;
+
+      // Chooses pose/frame from the agent's state and blits it with feet at (x, y).
+      // dir: 'down' | 'up' | 'left' | 'right'.  Returns the on-screen height.
+      PA.drawAgentSprite = (c, ag, x, y, now, dir, scale, opts = {}) => {
+        const seated = opts.seated !== undefined ? opts.seated : !!PA.seatOf(ag);
+        let pose = 'idle', extra = 0;
+        const t = now * (state.simSpeed || 1);
+        const seed = (ag.id ? ag.id.charCodeAt(ag.id.length - 1) : 0) * 97;
+        let f = Math.floor((now + seed) / 640) % 2;
+        if (ag.status === 'walking') { pose = 'walk'; f = Math.floor((t + seed) / 105) % 6; }
+        else if (ag.status === 'coffee') { pose = 'coffee'; f = Math.floor(now / 300) % 2; extra = Math.sin(now * 0.008) > 0.25 ? 'sip' : 0; }
+        else if (ag.status === 'meeting') { pose = 'meet'; f = Math.floor(now / 260) % 4; }
+        else if (seated) {
+          pose = 'sit'; f = Math.floor(now / 110) % 2;
+          extra = ag.status === 'working' ? 'type' : 0;
+          if (ag.status !== 'working') f = 0;
+        }
+        const blink = Math.floor((now + seed * 3) / 3200) % 9 === 0 && (now + seed * 3) % 3200 < 140;
+        const look = dir === 'left' ? -1 : dir === 'right' ? 1 : 0;
+        const sdir = dir === 'left' ? 'right' : dir;
+        const spr = PA.getSprite(ag, sdir, pose, f, blink, sdir === 'down' ? look : 0, extra);
+        let bobY = 0;
+        if (ag.status !== 'walking' && !seated) bobY = 0;
+        c.save();
+        c.imageSmoothingEnabled = false;
+        const dx = x - PA.FEET_X * scale, dy = y - PA.FEET_Y * scale + bobY;
+        if (dir === 'left') {
+          c.translate(x, 0); c.scale(-1, 1); c.translate(-x, 0);
+        }
+        if (Number.isInteger(scale)) {
+          c.drawImage(spr, dx, dy, PA.SPR_W * scale, PA.SPR_H * scale);
+        } else {
+          if (!spr._big) {
+            const bg = document.createElement('canvas');
+            bg.width = PA.SPR_W * 4; bg.height = PA.SPR_H * 4;
+            const bx = bg.getContext('2d'); bx.imageSmoothingEnabled = false;
+            bx.drawImage(spr, 0, 0, bg.width, bg.height);
+            spr._big = bg;
+          }
+          c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+          c.drawImage(spr._big, dx, dy, PA.SPR_W * scale, PA.SPR_H * scale);
+        }
+        c.restore();
+        return { top: dy, pose };
+      };
+
+      // Soft grounded shadow + glowing selection ring + modern name pill
+      PA.contactShadow = (c, x, y, rx, ry, a = 0.45) => {
+        c.save();
+        c.translate(x, y); c.scale(1, ry / rx);
+        const g = c.createRadialGradient(0, 0, 0, 0, 0, rx);
+        g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(0.6, `rgba(0,0,0,${a * 0.55})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+        c.fillStyle = g; c.beginPath(); c.arc(0, 0, rx, 0, Math.PI * 2); c.fill();
+        c.restore();
+      };
+      PA.selectionRing = (c, x, y, now, rx = 26) => {
+        const pulse = 0.5 + 0.5 * Math.sin(now * 0.006);
+        c.save();
+        c.translate(x, y); c.scale(1, 0.42);
+        const g = c.createRadialGradient(0, 0, rx * 0.55, 0, 0, rx * 1.25);
+        g.addColorStop(0, 'rgba(251,191,36,0)'); g.addColorStop(0.7, `rgba(251,191,36,${0.18 + pulse * 0.2})`); g.addColorStop(1, 'rgba(251,191,36,0)');
+        c.fillStyle = g; c.beginPath(); c.arc(0, 0, rx * 1.25, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = `rgba(253,230,138,${0.75 + pulse * 0.25})`; c.lineWidth = 3;
+        c.beginPath(); c.arc(0, 0, rx, 0, Math.PI * 2); c.stroke();
+        c.restore();
+      };
+      PA.rrect = (c, x, y, w, h, r) => {
+        c.beginPath();
+        c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+        c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+      };
+      PA.nameplate = (c, text, x, y, selected, accent) => {
+        c.save();
+        c.font = 'bold 10px "JetBrains Mono", monospace';
+        const w = Math.ceil(c.measureText(text).width) + 16;
+        PA.rrect(c, x - w / 2, y, w, 15, 4);
+        const g = c.createLinearGradient(0, y, 0, y + 15);
+        g.addColorStop(0, 'rgba(22,30,48,0.96)'); g.addColorStop(1, 'rgba(8,12,22,0.96)');
+        c.fillStyle = g; c.fill();
+        c.strokeStyle = selected ? '#fbbf24' : 'rgba(148,163,184,0.35)'; c.lineWidth = 1; c.stroke();
+        c.fillStyle = accent || '#38bdf8';
+        c.fillRect(x - w / 2 + 4, y + 5, 3, 5);
+        c.fillStyle = selected ? '#fde68a' : '#f1f5f9';
+        c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+        c.fillText(text, x + 3, y + 11);
+        c.restore();
+      };
+      PA.bubble = (c, text, x, y, accent, now, minX, maxX) => {
+        c.save();
+        c.font = '600 10px "Inter", sans-serif';
+        const w = Math.min(196, Math.max(64, c.measureText(text).width + 18)), h = 22;
+        let bx = x - w / 2;
+        bx = Math.max(minX + 6, Math.min(maxX - w - 6, bx));
+        const by = y + Math.sin(now * 0.006) * 1.5;
+        c.fillStyle = 'rgba(0,0,0,0.30)'; PA.rrect(c, bx + 1, by + 3, w, h, 6); c.fill();
+        PA.rrect(c, bx, by, w, h, 6);
+        const g = c.createLinearGradient(0, by, 0, by + h);
+        g.addColorStop(0, '#1e293b'); g.addColorStop(1, '#0f172a');
+        c.fillStyle = g; c.fill();
+        c.strokeStyle = accent || '#475569'; c.lineWidth = 1.5; c.stroke();
+        c.beginPath(); c.moveTo(x - 4, by + h - 0.5); c.lineTo(x, by + h + 5); c.lineTo(x + 4, by + h - 0.5); c.closePath();
+        c.fillStyle = '#0f172a'; c.fill(); c.strokeStyle = accent || '#475569'; c.stroke();
+        c.fillStyle = '#f8fafc'; c.textAlign = 'center';
+        c.fillText(text, bx + w / 2, by + 14, w - 10);
+        c.restore();
+      };
+
+      // ====================================================================
+      // PRO ART LAYER — PART 2: TOP-DOWN PROPS + POST FX
+      // ====================================================================
+      PA.lin = (c, x0, y0, x1, y1, stops) => {
+        const g = c.createLinearGradient(x0, y0, x1, y1);
+        stops.forEach(([t, col]) => g.addColorStop(t, col));
+        return g;
+      };
+      PA.glow = (c, x, y, r, color, a, sy = 1) => {
+        c.save();
+        c.globalCompositeOperation = 'lighter';
+        c.translate(x, y); c.scale(1, sy);
+        const g = c.createRadialGradient(0, 0, 0, 0, 0, r);
+        g.addColorStop(0, PA.css(PA.hex2rgb(color), a)); g.addColorStop(1, PA.css(PA.hex2rgb(color), 0));
+        c.fillStyle = g; c.beginPath(); c.arc(0, 0, r, 0, Math.PI * 2); c.fill();
+        c.restore();
+      };
+      // Syntax-coloured code block, scrolling with time. (x,y,w,h) is the screen area.
+      PA.codeScreen = (c, x, y, w, h, now, seed, tint) => {
+        const pal = ['#fbbf24', '#7dd3fc', '#f9a8d4', '#86efac', '#e2e8f0', '#c4b5fd'];
+        const scroll = Math.floor(now / 130);
+        c.save();
+        c.beginPath(); c.rect(x, y, w, h); c.clip();
+        for (let r = 0; r < Math.ceil(h / 4) + 1; r++) {
+          const li = r + scroll + seed;
+          const indent = ((li * 7) % 3) * 3;
+          let cx = x + 3 + indent;
+          const segs = 1 + ((li * 5) % 3);
+          for (let s = 0; s < segs; s++) {
+            const sw = 4 + ((li * 11 + s * 5) % 9);
+            if (cx + sw > x + w - 2) break;
+            c.fillStyle = pal[(li * 3 + s * 2) % pal.length];
+            c.globalAlpha = 0.92;
+            c.fillRect(cx, y + 2 + r * 4 - (scroll % 1), sw, 2);
+            cx += sw + 2;
+          }
+        }
+        c.globalAlpha = 1;
+        c.fillStyle = 'rgba(0,0,0,0.10)';
+        for (let sl = 0; sl < h; sl += 2) c.fillRect(x, y + sl, w, 1);
+        if (Math.floor(now / 500) % 2) { c.fillStyle = '#fff'; c.fillRect(x + w - 6, y + h - 6, 3, 4); }
+        c.restore();
+      };
+      PA.drawDesk = (desk, isOccupied, isWorking, now) => {
+        const c = ctx;
+        const { x, y, monitorColor } = desk;
+        const mood = LIGHTING_MODES[state.lightingIdx];
+        PA.contactShadow(c, x, y + 24, 70, 11, 0.5);
+        // steel legs & crossbar
+        [x - 53, x + 46].forEach((lx) => {
+          c.fillStyle = PA.lin(c, lx, 0, lx + 7, 0, [[0, '#64748b'], [0.35, '#334155'], [1, '#0f172a']]);
+          c.fillRect(lx, y + 8, 7, 16);
+          pxRect(lx - 2, y + 22, 11, 3, '#0f172a'); pxRect(lx - 2, y + 22, 11, 1, '#475569');
+        });
+        pxRect(x - 48, y + 16, 96, 3, '#1e293b'); pxRect(x - 48, y + 16, 96, 1, '#475569');
+        // PC tower
+        c.fillStyle = PA.lin(c, x + 22, 0, x + 42, 0, [[0, '#475569'], [0.2, '#1e293b'], [1, '#0b1220']]);
+        PA.rrect(c, x + 22, y + 2, 20, 22, 2); c.fill();
+        for (let v = 0; v < 4; v++) pxRect(x + 27, y + 6 + v * 3, 11, 1, '#0b1220');
+        pxRect(x + 29, y + 17, 8, 3, isWorking ? monitorColor : '#0b1220');
+        pxRect(x + 38, y + 4, 2, 2, isWorking ? '#4ade80' : '#334155');
+        if (isWorking) PA.glow(c, x + 33, y + 18, 16, monitorColor, 0.35);
+        // Desktop slab — wood gradient, bevel, grain, front lip
+        c.fillStyle = 'rgba(0,0,0,0.35)'; PA.rrect(c, x - 59, y - 15, 118, 28, 4); c.fill();
+        c.fillStyle = PA.lin(c, 0, y - 16, 0, y + 8, [[0, '#a07650'], [0.45, '#7d5a3c'], [1, '#68482f']]);
+        PA.rrect(c, x - 58, y - 16, 116, 25, 3); c.fill();
+        for (let g = 0; g < 9; g++) {
+          c.fillStyle = `rgba(40,20,8,${0.10 + (g % 3) * 0.04})`;
+          c.fillRect(x - 54 + ((g * 41) % 104), y - 12 + ((g * 7) % 18), 10 + (g % 4) * 6, 1);
+        }
+        c.fillStyle = 'rgba(255,230,190,0.28)'; c.fillRect(x - 56, y - 16, 112, 1);
+        c.fillStyle = PA.lin(c, 0, y + 5, 0, y + 11, [[0, '#4a3322'], [1, '#2a1b12']]);
+        PA.rrect(c, x - 58, y + 5, 116, 6, 2); c.fill();
+        c.fillStyle = 'rgba(255,255,255,0.10)'; c.fillRect(x - 56, y + 5, 112, 1);
+        // Desk lamp (warm cone)
+        if (isOccupied || mood.lampGlow > 0.3) {
+          c.save(); c.globalCompositeOperation = 'lighter';
+          c.fillStyle = PA.lin(c, x - 44, y - 32, x - 30, y + 12, [[0, `rgba(253,224,71,${0.26 * (0.5 + mood.lampGlow)})`], [1, 'rgba(253,224,71,0)']]);
+          c.beginPath(); c.moveTo(x - 46, y - 30); c.lineTo(x - 38, y - 30); c.lineTo(x - 18, y + 8); c.lineTo(x - 62, y + 8); c.closePath(); c.fill();
+          c.restore();
+        }
+        pxRect(x - 52, y - 18, 14, 4, '#1e293b'); pxRect(x - 52, y - 18, 14, 1, '#64748b');
+        pxRect(x - 45, y - 31, 3, 13, '#64748b'); pxRect(x - 45, y - 31, 1, 13, '#cbd5e1');
+        c.fillStyle = PA.lin(c, x - 51, 0, x - 35, 0, [[0, '#fcd34d'], [1, '#b45309']]);
+        PA.rrect(c, x - 51, y - 37, 16, 7, 3); c.fill();
+        pxRect(x - 49, y - 36, 12, 1, '#fffbeb');
+        PA.glow(c, x - 43, y - 30, 22, '#fde047', 0.12 + mood.lampGlow * 0.25);
+
+        // Monitors
+        const mon = (mx, my, mw, mh, content) => {
+          c.fillStyle = 'rgba(0,0,0,0.30)'; PA.rrect(c, mx - 1, my + 2, mw + 4, mh + 3, 3); c.fill();
+          c.fillStyle = PA.lin(c, mx, my, mx + mw + 2, my + mh, [[0, '#2b3650'], [1, '#0b1220']]);
+          PA.rrect(c, mx - 2, my - 2, mw + 4, mh + 4, 3); c.fill();
+          const sx = mx, sy = my, sw = mw, sh = mh;
+          c.fillStyle = isWorking ? PA.lin(c, sx, sy, sx, sy + sh, [[0, PA.mul(monitorColor, 0.35)], [1, PA.mul(monitorColor, 0.18)]]) : isOccupied ? '#101a2e' : '#070b14';
+          c.fillRect(sx, sy, sw, sh);
+          if (isWorking) content(sx, sy, sw, sh);
+          else if (isOccupied) { pxRect(sx + 4, sy + 4, sw * 0.5, 2, monitorColor); pxRect(sx + 4, sy + 9, sw * 0.32, 2, '#475569'); }
+          // glass reflection
+          c.fillStyle = 'rgba(255,255,255,0.07)';
+          c.beginPath(); c.moveTo(sx, sy); c.lineTo(sx + sw * 0.55, sy); c.lineTo(sx + sw * 0.18, sy + sh); c.lineTo(sx, sy + sh); c.closePath(); c.fill();
+          pxRect(mx + mw / 2 - 3, my + mh + 2, 6, 4, '#334155'); pxRect(mx + mw / 2 - 8, my + mh + 6, 16, 2, '#475569');
+          pxRect(mx + mw - 1, my + mh + 1, 2, 1, isWorking ? '#4ade80' : '#334155');
+        };
+        mon(x - 34, y - 44, 40, 23, (sx, sy, sw, sh) => PA.codeScreen(c, sx, sy, sw, sh, now, desk.id * 3, monitorColor));
+        mon(x + 14, y - 40, 24, 19, (sx, sy, sw, sh) => {
+          c.save(); c.beginPath(); c.rect(sx, sy, sw, sh); c.clip();
+          for (let b = 0; b < 5; b++) {
+            const bh = 4 + ((Math.sin(now * 0.004 + b * 1.3 + desk.id) + 1) / 2) * (sh - 8);
+            c.fillStyle = b % 2 ? '#38bdf8' : '#7dd3fc'; c.fillRect(sx + 2 + b * 4.5, sy + sh - 2 - bh, 3, bh);
+          }
+          c.fillStyle = 'rgba(0,0,0,0.10)'; for (let sl = 0; sl < sh; sl += 2) c.fillRect(sx, sy + sl, sw, 1);
+          c.restore();
+        });
+        if (isWorking) {
+          PA.glow(c, x - 14, y - 32, 52, monitorColor, 0.20 + (mood.id === 'night' ? 0.12 : 0));
+          PA.glow(c, x - 8, y - 2, 46, monitorColor, 0.10, 0.45);
+        }
+        // Keyboard with per-key shading and underglow
+        c.fillStyle = 'rgba(0,0,0,0.3)'; PA.rrect(c, x - 25, y - 4, 42, 11, 2); c.fill();
+        c.fillStyle = PA.lin(c, 0, y - 5, 0, y + 4, [[0, '#475569'], [1, '#1e293b']]);
+        PA.rrect(c, x - 24, y - 5, 40, 9, 2); c.fill();
+        for (let r = 0; r < 3; r++) for (let k = 0; k < 10; k++) {
+          const lit = isWorking && ((Math.floor(now / 90) + k * 3 + r * 7) % 11 === 0);
+          pxRect(x - 22 + k * 3.8, y - 3.5 + r * 2.6, 3, 1.8, lit ? monitorColor : '#0f172a');
+        }
+        if (isWorking) PA.glow(c, x - 4, y, 24, monitorColor, 0.12, 0.35);
+        // Mouse pad & mouse
+        c.fillStyle = PA.lin(c, x + 20, y - 4, x + 36, y + 4, [[0, '#334155'], [1, '#172033']]);
+        PA.rrect(c, x + 20, y - 4, 16, 9, 2); c.fill();
+        c.fillStyle = '#e2e8f0'; PA.rrect(c, x + 26, y - 2, 4, 6, 2); c.fill();
+        pxRect(x + 27, y - 1, 1, 2, '#94a3b8');
+        // Coffee mug + steam
+        c.fillStyle = PA.lin(c, x + 40, 0, x + 49, 0, [[0, '#ffffff'], [1, '#cbd5e1']]);
+        PA.rrect(c, x + 40, y - 11, 9, 10, 2); c.fill();
+        pxRect(x + 41, y - 10, 7, 2, '#5b2d0f'); pxRect(x + 49, y - 8, 2, 5, '#e2e8f0');
+        if (isOccupied) {
+          for (let s = 0; s < 2; s++) {
+            const a = 0.28 - ((now / 900 + s * 0.5) % 1) * 0.26;
+            c.fillStyle = `rgba(255,255,255,${Math.max(0, a)})`;
+            c.fillRect(x + 43 + s * 2 + Math.sin(now * 0.004 + s) * 1.5, y - 15 - ((now / 120 + s * 6) % 9), 1.5, 3);
+          }
+        }
+        // Sticky notes + tiny succulent
+        pxRect(x - 44, y - 43, 5, 5, '#fde047'); pxRect(x - 44, y - 43, 5, 1, '#fef9c3'); pxRect(x - 43, y - 41, 3, 1, '#a16207');
+        pxRect(x + 5, y - 39, 4, 4, '#fca5a5');
+        pxRect(x + 51, y - 14, 6, 6, '#b45309'); pxRect(x + 51, y - 14, 6, 1, '#f59e0b');
+        PA.blob(c, x + 54, y - 17, 3.5, 3.5, PA.ramp('#4ade80'), { rim: false });
+      };
+      PA.drawChairTop = (desk) => {
+        const c = ctx;
+        const { seatX: sx, seatY: sy } = desk;
+        PA.contactShadow(c, sx, sy + 16, 24, 7, 0.40);
+        // star base + casters
+        c.strokeStyle = '#0f172a'; c.lineWidth = 2;
+        [[-14, 14], [14, 14], [-8, 17], [8, 17], [0, 18]].forEach(([dx, dy]) => { c.beginPath(); c.moveTo(sx, sy + 10); c.lineTo(sx + dx, sy + dy); c.stroke(); pxRect(sx + dx - 1, sy + dy, 3, 2, '#475569'); });
+        // backrest (behind the sitter)
+        c.fillStyle = PA.lin(c, sx - 14, 0, sx + 14, 0, [[0, '#475a7a'], [0.5, '#2b3750'], [1, '#18202f']]);
+        PA.rrect(c, sx - 14, sy - 30, 28, 30, 7); c.fill();
+        c.fillStyle = 'rgba(255,255,255,0.14)'; c.fillRect(sx - 12, sy - 29, 24, 1);
+        pxRect(sx - 4, sy - 36, 8, 7, '#2b3750'); pxRect(sx - 4, sy - 36, 8, 1, '#64748b');
+        // seat cushion
+        c.fillStyle = PA.lin(c, 0, sy - 2, 0, sy + 14, [[0, '#4b5d82'], [0.5, '#2b3750'], [1, '#18202f']]);
+        PA.rrect(c, sx - 16, sy - 2, 32, 15, 6); c.fill();
+        c.fillStyle = 'rgba(255,255,255,0.16)'; c.fillRect(sx - 12, sy - 1, 24, 1);
+        // armrests
+        pxRect(sx - 19, sy - 8, 4, 14, '#0f172a'); pxRect(sx + 15, sy - 8, 4, 14, '#0f172a');
+        pxRect(sx - 19, sy - 8, 4, 2, '#475569'); pxRect(sx + 15, sy - 8, 4, 2, '#475569');
+      };
+
+      // Vignette + soft colour grade, drawn once into an offscreen canvas.
+      PA.fxCanvas = null;
+      PA.postFX = (c, now) => {
+        if (!PA.fxCanvas) {
+          const cv = document.createElement('canvas');
+          cv.width = WORLD_W; cv.height = WORLD_H;
+          const g = cv.getContext('2d');
+          const r = g.createRadialGradient(WORLD_W / 2, WORLD_H / 2, WORLD_H * 0.32, WORLD_W / 2, WORLD_H / 2, WORLD_W * 0.62);
+          r.addColorStop(0, 'rgba(6,8,18,0)'); r.addColorStop(0.7, 'rgba(6,8,18,0.20)'); r.addColorStop(1, 'rgba(4,6,14,0.55)');
+          g.fillStyle = r; g.fillRect(0, 0, WORLD_W, WORLD_H);
+          const t = g.createLinearGradient(0, 0, 0, WORLD_H);
+          t.addColorStop(0, 'rgba(255,214,150,0.05)'); t.addColorStop(0.5, 'rgba(0,0,0,0)'); t.addColorStop(1, 'rgba(20,30,80,0.10)');
+          g.fillStyle = t; g.fillRect(0, 0, WORLD_W, WORLD_H);
+          PA.fxCanvas = cv;
+        }
+        c.drawImage(PA.fxCanvas, 0, 0);
+      };
+
+      // ====================================================================
+      // PRO ART LAYER — PART 3: ISOMETRIC OFFICE
+      // Real lit geometry: back-face culled boxes whose shading follows the
+      // camera, projected soft shadows, back walls with windows / whiteboard /
+      // wall display, glass partitions, emissive props, painter-sorted props
+      // and the cached character sprites. Works at all four camera angles.
+      // ====================================================================
+      PA.poly = (pts, fill) => {
+        ctx.beginPath();
+        pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+        ctx.closePath();
+        if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      };
+      PA.rot = (x, y) => {
+        const a = state.camera.angle, c = Math.cos(a), s = Math.sin(a);
+        const dx = x - WORLD_W / 2, dy = y - WORLD_H / 2;
+        return { x: dx * c - dy * s, y: dx * s + dy * c };
+      };
+      PA.depth = (x, y) => { const r = PA.rot(x, y); return r.x + r.y; };
+      PA.faceInfo = (nx, ny) => {
+        const a = state.camera.angle, c = Math.cos(a), s = Math.sin(a);
+        const rx = nx * c - ny * s, ry = nx * s + ny * c;
+        return { vis: rx + ry > 0.02, bright: 0.80 - 0.26 * (rx - ry) * 0.7071 };
+      };
+      PA.unproject = (sx, sy) => {
+        const A = (sx - WORLD_W / 2) / 0.49, B = (sy - WORLD_H / 2) / 0.225;
+        const rx = (A + B) / 2, ry = (B - A) / 2;
+        const a = state.camera.angle, c = Math.cos(a), s = Math.sin(a);
+        return { x: rx * c + ry * s + WORLD_W / 2, y: -rx * s + ry * c + WORLD_H / 2 };
+      };
+      // bilinear point inside a face quad [TL, TR, BR, BL]
+      PA.qp = (q, u, v) => {
+        const tx = q[0].x + (q[1].x - q[0].x) * u, ty = q[0].y + (q[1].y - q[0].y) * u;
+        const bx = q[3].x + (q[2].x - q[3].x) * u, by = q[3].y + (q[2].y - q[3].y) * u;
+        return { x: tx + (bx - tx) * v, y: ty + (by - ty) * v };
+      };
+      PA.fq = (q, u0, v0, u1, v1) => [PA.qp(q, u0, v0), PA.qp(q, u1, v0), PA.qp(q, u1, v1), PA.qp(q, u0, v1)];
+
+      PA.hull = (pts) => {
+        const p = pts.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+        const cr = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+        const lo = [], up = [];
+        p.forEach((q) => { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); });
+        for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+        up.pop(); lo.pop();
+        return lo.concat(up);
+      };
+      // Cast shadow (light from upper-left) + tight contact occlusion
+      PA.shadow = (x, y, w, d, h, a = 0.30) => {
+        const corners = [[x, y], [x + w, y], [x + w, y + d], [x, y + d]].map(([px, py]) => isoPoint(px, py, 0));
+        const sh = Math.min(h, 120);
+        const moved = corners.map((p) => ({ x: p.x + sh * 0.52, y: p.y + sh * 0.20 }));
+        PA.poly(PA.hull(corners.concat(moved)), `rgba(6,8,20,${a})`);
+        const g = 3;
+        const ao = [[x - g, y - g], [x + w + g, y - g], [x + w + g, y + d + g], [x - g, y + d + g]].map(([px, py]) => isoPoint(px, py, 0));
+        PA.poly(ao, 'rgba(6,8,20,0.22)');
+      };
+
+      // Lit, back-face-culled box. col = '#hex' or {top, side}. o.face(name, quad, info) decorates a visible face.
+      PA.box = (x, y, w, d, h, col, o = {}) => {
+        const c = ctx;
+        const z0 = o.z || 0, z1 = z0 + h;
+        const topC = typeof col === 'string' ? PA.mul(col, 1.18) : null;
+        const topHex = typeof col === 'string' ? col : col.top;
+        const side = typeof col === 'string' ? col : col.side;
+        const faces = [
+          { n: [0, -1], a: [x, y], b: [x + w, y], name: 'N' },
+          { n: [0, 1], a: [x + w, y + d], b: [x, y + d], name: 'S' },
+          { n: [-1, 0], a: [x, y + d], b: [x, y], name: 'W' },
+          { n: [1, 0], a: [x + w, y], b: [x + w, y + d], name: 'E' }
+        ];
+        const out = [];
+        faces.forEach((f) => {
+          const fi = PA.faceInfo(f.n[0], f.n[1]);
+          if (!fi.vis) return;
+          const A = isoPoint(f.a[0], f.a[1], z1), B = isoPoint(f.b[0], f.b[1], z1);
+          const B0 = isoPoint(f.b[0], f.b[1], z0), A0 = isoPoint(f.a[0], f.a[1], z0);
+          const gr = c.createLinearGradient(0, Math.min(A.y, B.y), 0, Math.max(A0.y, B0.y));
+          gr.addColorStop(0, PA.mul(side, fi.bright * 1.08));
+          gr.addColorStop(1, PA.mul(side, fi.bright * 0.70));
+          PA.poly([A, B, B0, A0], o.alpha ? PA.css(PA.hex2rgb(side).map((v) => v * fi.bright), o.alpha) : gr);
+          c.strokeStyle = 'rgba(255,255,255,0.13)'; c.lineWidth = 1;
+          c.beginPath(); c.moveTo(A.x, A.y); c.lineTo(B.x, B.y); c.stroke();
+          c.strokeStyle = 'rgba(0,0,0,0.22)';
+          c.beginPath(); c.moveTo(A0.x, A0.y); c.lineTo(B0.x, B0.y); c.stroke();
+          out.push([f.name, [A, B, B0, A0], fi]);
+        });
+        if (!o.noTop) {
+          const P1 = isoPoint(x, y, z1), P2 = isoPoint(x + w, y, z1), P3 = isoPoint(x + w, y + d, z1), P4 = isoPoint(x, y + d, z1);
+          const L = [P1, P2, P3, P4].reduce((m, p) => (p.x < m.x ? p : m));
+          const Rr = [P1, P2, P3, P4].reduce((m, p) => (p.x > m.x ? p : m));
+          const gr = c.createLinearGradient(L.x, L.y, Rr.x, Rr.y);
+          gr.addColorStop(0, PA.mul(topHex, 1.22)); gr.addColorStop(1, PA.mul(topHex, 0.98));
+          PA.poly([P1, P2, P3, P4], o.alpha ? PA.css(PA.hex2rgb(topHex).map((v) => v * 1.1), o.alpha) : gr);
+          c.strokeStyle = 'rgba(255,255,255,0.22)'; c.lineWidth = 1;
+          c.beginPath(); c.moveTo(P1.x, P1.y); c.lineTo(P2.x, P2.y); c.lineTo(P3.x, P3.y); c.lineTo(P4.x, P4.y); c.closePath(); c.stroke();
+          if (o.top) o.top([P1, P2, P3, P4]);
+        }
+        if (o.face) out.forEach(([n, q, fi]) => o.face(n, q, fi));
+        void topC;
+      };
+
+      // Soft sphere (foliage etc.)
+      PA.sphere = (x, y, z, r, hex) => {
+        const p = isoPoint(x, y, z), c = ctx;
+        const g = c.createRadialGradient(p.x - r * 0.35, p.y - r * 0.4, r * 0.1, p.x, p.y, r);
+        g.addColorStop(0, PA.mul(hex, 1.45)); g.addColorStop(0.55, hex); g.addColorStop(1, PA.mul(hex, 0.52));
+        c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, r, 0, Math.PI * 2); c.fill();
+      };
+
+      // ---- floor, walls, lighting ---------------------------------------------------
+      PA.floorQuad = (x, y, w, d, fill, z = 0.4) => {
+        PA.poly([isoPoint(x, y, z), isoPoint(x + w, y, z), isoPoint(x + w, y + d, z), isoPoint(x, y + d, z)], fill);
+      };
+      PA.drawFloor = (now) => {
+        const c = ctx, W = WORLD_W, H = WORLD_H;
+        // slab edge
+        PA.box(0, 0, W, H, 18, '#17110e', { z: -18, noTop: true });
+        // oak planks (long strips along x, staggered butt seams)
+        const tones = ['#4a3427', '#42301f'.replace('1f', '24'), '#3b2a20', '#46321f'];
+        for (let r = 0, y = 0; y < H; r++, y += 24) {
+          PA.floorQuad(0, y, W, 24, tones[r % 4]);
+        }
+        c.lineWidth = 1;
+        c.beginPath();
+        for (let r = 0, y = 0; y <= H; r++, y += 24) {
+          const a = isoPoint(0, y, 0.5), b = isoPoint(W, y, 0.5);
+          c.moveTo(a.x, a.y); c.lineTo(b.x, b.y);
+        }
+        c.strokeStyle = 'rgba(12,6,3,0.55)'; c.stroke();
+        c.beginPath();
+        for (let r = 0, y = 0; y < H; r++, y += 24) {
+          for (let x = (r % 3) * 60 + 30; x < W; x += 180) {
+            const a = isoPoint(x, y, 0.5), b = isoPoint(x, y + 24, 0.5);
+            c.moveTo(a.x, a.y); c.lineTo(b.x, b.y);
+          }
+        }
+        c.strokeStyle = 'rgba(12,6,3,0.35)'; c.stroke();
+        c.beginPath();
+        for (let r = 0, y = 2; y < H; r++, y += 24) {
+          const a = isoPoint(0, y, 0.5), b = isoPoint(W, y, 0.5);
+          c.moveTo(a.x, a.y); c.lineTo(b.x, b.y);
+        }
+        c.strokeStyle = 'rgba(255,225,180,0.045)'; c.stroke();
+
+        // Server room anti-static tiles
+        PA.floorQuad(704, 298, 386, 134, '#0d1424', 0.6);
+        c.beginPath();
+        for (let x = 704; x <= 1090; x += 22) { const a = isoPoint(x, 298, 0.7), b = isoPoint(x, 432, 0.7); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); }
+        for (let y = 298; y <= 432; y += 22) { const a = isoPoint(704, y, 0.7), b = isoPoint(1090, y, 0.7); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); }
+        c.strokeStyle = 'rgba(100,116,139,0.28)'; c.stroke();
+        // Kitchenette checker tile
+        for (let i = 0; i < 6; i++) for (let j = 0; j < 3; j++) {
+          PA.floorQuad(50 + i * 25, 150 + j * 22, 25, 22, (i + j) % 2 ? '#cbd5e1' : '#1f2937', 0.6);
+        }
+        // War-room rug (navy with amber border)
+        PA.floorQuad(332, 131, 234, 102, '#7c3a0b', 0.7);
+        PA.floorQuad(338, 137, 222, 90, '#1b2a4a', 0.8);
+        PA.floorQuad(346, 145, 206, 74, '#223559', 0.9);
+        c.beginPath();
+        for (let i = 0; i <= 10; i++) { const a = isoPoint(346 + i * 20.6, 145, 1), b = isoPoint(346 + i * 20.6, 219, 1); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); }
+        c.strokeStyle = 'rgba(251,191,36,0.12)'; c.stroke();
+        // Lounge rug
+        PA.floorQuad(60, 548, 270, 128, '#3b1111', 0.7);
+        PA.floorQuad(68, 556, 254, 112, '#561a1a', 0.8);
+        // Conference carpet
+        PA.floorQuad(1120, 330, 262, 170, '#171f33', 0.7);
+        PA.floorQuad(1126, 336, 250, 158, '#1d2740', 0.8);
+        // Entrance mat
+        for (let i = 0; i < 6; i++) for (let j = 0; j < 2; j++) PA.floorQuad(640 + i * 20, 668 + j * 20, 20, 20, (i + j) % 2 ? '#e2e8f0' : '#334155', 0.7);
+        // Ceiling-light pools
+        const mood = LIGHTING_MODES[state.lightingIdx];
+        [[150, 300, 150], [620, 280, 190], [895, 360, 150], [1240, 300, 150], [620, 560, 190], [180, 600, 150]].forEach(([lx, ly, r], i) => {
+          PA.isoGlow(lx, ly, r, mood.id === 'night' ? '#93a8ff' : '#ffe8b0', (mood.id === 'night' ? 0.09 : 0.05) + Math.sin(now * 0.002 + i) * 0.01);
+        });
+        // Daylight shafts through the north windows
+        if (mood.id !== 'night') {
+          [[40, 170], [676, 806], [830, 950]].forEach(([x0, x1]) => {
+            const g = c.createLinearGradient(isoPoint(x0, 0).x, isoPoint(x0, 0).y, isoPoint(x0 + 90, 240).x, isoPoint(x0 + 90, 240).y);
+            g.addColorStop(0, mood.id === 'sunset' ? 'rgba(255,170,90,0.20)' : 'rgba(255,244,200,0.16)'); g.addColorStop(1, 'rgba(255,244,200,0)');
+            c.save(); c.globalCompositeOperation = 'lighter';
+            PA.poly([isoPoint(x0, 0, 1), isoPoint(x1, 0, 1), isoPoint(x1 + 110, 250, 1), isoPoint(x0 + 110, 250, 1)], g);
+            c.restore();
+          });
+        }
+      };
+      PA.isoGlow = (x, y, r, color, a) => {
+        const p = isoPoint(x, y, 0);
+        PA.glow(ctx, p.x, p.y, r * 0.6, color, a, 0.46);
+      };
+
+      PA.WALLS = [
+        { n: 'N', a: [0, 0], b: [1400, 0], inward: [0, 1] },
+        { n: 'E', a: [1400, 0], b: [1400, 720], inward: [-1, 0] },
+        { n: 'S', a: [1400, 720], b: [0, 720], inward: [0, -1] },
+        { n: 'W', a: [0, 720], b: [0, 0], inward: [1, 0] }
+      ];
+      PA.WALL_H = 120;
+      PA.wallQuad = (w, s0, s1, z0, z1) => {
+        const L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]);
+        const P = (s, z) => isoPoint(w.a[0] + (w.b[0] - w.a[0]) * s / L, w.a[1] + (w.b[1] - w.a[1]) * s / L, z);
+        return [P(s0, z1), P(s1, z1), P(s1, z0), P(s0, z0)];
+      };
+      PA.skyWindow = (w, s0, s1, z0, z1, now, seed) => {
+        const c = ctx, mood = LIGHTING_MODES[state.lightingIdx];
+        const q = PA.wallQuad(w, s0, s1, z0, z1);
+        const frame = PA.wallQuad(w, s0 - 5, s1 + 5, z0 - 5, z1 + 5);
+        PA.poly(frame, '#0b1220');
+        const g = c.createLinearGradient(0, q[0].y, 0, q[3].y);
+        g.addColorStop(0, mood.skyTop); g.addColorStop(1, mood.skyBottom);
+        PA.poly(q, g);
+        c.save(); PA.poly(q, null); c.clip();
+        // skyline
+        const bw = [0.00, 0.16, 0.31, 0.47, 0.62, 0.80], bh = [0.40, 0.62, 0.30, 0.52, 0.72, 0.36];
+        bw.forEach((u, i) => {
+          const u1 = Math.min(1, u + 0.17), h = bh[(i + seed) % 6];
+          const bq = PA.fq(q, u, 1 - h, u1, 1);
+          PA.poly(bq, mood.id === 'night' ? '#0a0f1f' : mood.id === 'sunset' ? '#5b3a55' : '#6b83a3');
+          if (mood.id !== 'day') for (let k = 0; k < 6; k++) {
+            if ((k * 7 + i * 3 + seed) % 3 === 0) {
+              const wq = PA.fq(q, u + 0.03 + (k % 2) * 0.06, 1 - h + 0.06 + Math.floor(k / 2) * 0.1, u + 0.06 + (k % 2) * 0.06, 1 - h + 0.10 + Math.floor(k / 2) * 0.1);
+              PA.poly(wq, 'rgba(253,224,71,0.85)');
+            }
+          }
+        });
+        if (mood.id === 'day') { const sp = PA.qp(q, 0.78, 0.25); PA.glow(c, sp.x, sp.y, 18, '#fff7c2', 0.55); }
+        if (mood.id === 'night') { const sp = PA.qp(q, 0.78, 0.25); c.fillStyle = '#fef9c3'; c.beginPath(); c.arc(sp.x, sp.y, 3.5, 0, 7); c.fill(); }
+        c.fillStyle = 'rgba(255,255,255,0.10)';
+        PA.poly([PA.qp(q, 0, 0), PA.qp(q, 0.5, 0), PA.qp(q, 0.2, 1), PA.qp(q, 0, 1)], 'rgba(255,255,255,0.09)');
+        c.restore();
+        // mullions + sill
+        c.strokeStyle = '#1e293b'; c.lineWidth = 2;
+        const a = PA.qp(q, 0.5, 0), b = PA.qp(q, 0.5, 1); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
+        const a2 = PA.qp(q, 0, 0.5), b2 = PA.qp(q, 1, 0.5); c.beginPath(); c.moveTo(a2.x, a2.y); c.lineTo(b2.x, b2.y); c.stroke();
+        PA.poly(PA.wallQuad(w, s0 - 8, s1 + 8, z0 - 8, z0 - 4), '#94a3b8');
+      };
+      PA.drawWalls = (now) => {
+        const c = ctx, mood = LIGHTING_MODES[state.lightingIdx];
+        PA.WALLS.forEach((w) => {
+          const fi = PA.faceInfo(w.inward[0], w.inward[1]);
+          const L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]);
+          if (!fi.vis) {
+            // front side: a low glass-edge curb so the room never looks open to the void
+            const q = PA.wallQuad(w, 0, L, 0, 7);
+            PA.poly(q, '#1f2a3d');
+            c.strokeStyle = 'rgba(148,163,184,0.5)'; c.lineWidth = 1; c.beginPath(); c.moveTo(q[0].x, q[0].y); c.lineTo(q[1].x, q[1].y); c.stroke();
+            return;
+          }
+          const WH = PA.WALL_H;
+          const q = PA.wallQuad(w, 0, L, 0, WH);
+          const g = c.createLinearGradient(0, q[0].y, 0, q[3].y);
+          g.addColorStop(0, PA.mul('#2a3652', fi.bright * 1.1)); g.addColorStop(1, PA.mul('#1a2236', fi.bright * 0.9));
+          PA.poly(q, g);
+          // brick courses
+          c.save(); PA.poly(q, null); c.clip();
+          c.strokeStyle = 'rgba(0,0,0,0.20)'; c.lineWidth = 1; c.beginPath();
+          for (let z = 38; z < WH; z += 9) {
+            const a = PA.wallQuad(w, 0, 1, z, z)[0], b = PA.wallQuad(w, L, L + 1, z, z)[0];
+            c.moveTo(a.x, a.y); c.lineTo(b.x, b.y);
+          }
+          c.stroke(); c.restore();
+          // wainscot panelling
+          PA.poly(PA.wallQuad(w, 0, L, 0, 34), PA.mul('#5b3d2a', fi.bright));
+          PA.poly(PA.wallQuad(w, 0, L, 32, 36), PA.mul('#8a5a3a', fi.bright * 1.1));
+          for (let s = 20; s < L; s += 70) PA.poly(PA.wallQuad(w, s, s + 54, 6, 28), 'rgba(0,0,0,0.18)');
+          // crown + cap
+          PA.poly(PA.wallQuad(w, 0, L, WH - 5, WH), PA.mul('#3a4766', fi.bright * 1.15));
+          PA.poly(PA.wallQuad(w, 0, L, WH, WH + 3), PA.mul('#0e1424', fi.bright));
+          const sc = (n) => n;
+          if (w.n === 'N') {
+            [[40, 170, 0], [676, 806, 2], [830, 950, 4]].forEach(([s0, s1, sd]) => PA.skyWindow(w, s0, s1, 52, 108, now, sd));
+            // clock
+            const cp = PA.qp(PA.wallQuad(w, 200, 232, 78, 110), 0.5, 0.5);
+            c.fillStyle = '#e2e8f0'; c.beginPath(); c.arc(cp.x, cp.y, 9, 0, 7); c.fill();
+            c.strokeStyle = '#0f172a'; c.lineWidth = 2; c.stroke();
+            const d = new Date(); const ma = d.getMinutes() / 60 * 6.283 - 1.5708, ha = (d.getHours() % 12 + d.getMinutes() / 60) / 12 * 6.283 - 1.5708;
+            c.lineWidth = 1.5; c.beginPath(); c.moveTo(cp.x, cp.y); c.lineTo(cp.x + Math.cos(ma) * 7, cp.y + Math.sin(ma) * 7 * 0.9); c.stroke();
+            c.beginPath(); c.moveTo(cp.x, cp.y); c.lineTo(cp.x + Math.cos(ha) * 4.5, cp.y + Math.sin(ha) * 4.5 * 0.9); c.stroke();
+            // robot poster
+            const pq = PA.wallQuad(w, 262, 318, 62, 110);
+            PA.poly(PA.wallQuad(w, 258, 322, 58, 114), '#0f172a'); PA.poly(pq, '#164e63');
+            const hq = PA.fq(pq, 0.25, 0.22, 0.75, 0.68); PA.poly(hq, '#67e8f9');
+            PA.poly(PA.fq(pq, 0.34, 0.36, 0.44, 0.48), '#0f172a'); PA.poly(PA.fq(pq, 0.56, 0.36, 0.66, 0.48), '#0f172a');
+            PA.poly(PA.fq(pq, 0.4, 0.58, 0.6, 0.62), '#0f172a');
+            // whiteboard
+            const wb = PA.wallQuad(w, 340, 566, 46, 108);
+            PA.poly(PA.wallQuad(w, 335, 571, 41, 113), '#94a3b8'); PA.poly(wb, '#f1f5f9');
+            [['#7dd3fc', 0.06], ['#fcd34d', 0.30], ['#86efac', 0.54], ['#f9a8d4', 0.78]].forEach(([col, u]) => {
+              PA.poly(PA.fq(wb, u, 0.18, u + 0.17, 0.52), col);
+              PA.poly(PA.fq(wb, u + 0.02, 0.28, u + 0.13, 0.31), 'rgba(15,23,42,0.45)');
+              PA.poly(PA.fq(wb, u + 0.02, 0.38, u + 0.10, 0.41), 'rgba(15,23,42,0.30)');
+            });
+            const done = Math.min(1, (state.missionProgress || 0.45));
+            PA.poly(PA.fq(wb, 0.06, 0.72, 0.94, 0.80), '#cbd5e1'); PA.poly(PA.fq(wb, 0.06, 0.72, 0.06 + 0.88 * done, 0.80), '#34d399');
+            // LED ticker
+            const tq = PA.wallQuad(w, 584, 672, 66, 86);
+            PA.poly(PA.wallQuad(w, 581, 675, 63, 89), '#0b1220'); PA.poly(tq, '#031b14');
+            PA.poly(PA.fq(tq, 0.08 + ((now / 4000) % 1) * 0.1, 0.3, 0.9, 0.5), '#22c55e');
+            PA.poly(PA.fq(tq, 0.08, 0.62, 0.55, 0.78), '#16a34a');
+            // war-room telemetry display
+            const dq = PA.wallQuad(w, 1150, 1350, 28, 108);
+            PA.poly(PA.wallQuad(w, 1145, 1355, 23, 113), '#0b1220'); PA.poly(dq, '#020617');
+            for (let b = 0; b < 6; b++) {
+              const bh = 0.15 + ((Math.sin(now * 0.003 + b) + 1) / 2) * 0.6;
+              PA.poly(PA.fq(dq, 0.07 + b * 0.15, 0.92 - bh, 0.07 + b * 0.15 + 0.1, 0.92), b % 2 ? '#34d399' : '#38bdf8');
+            }
+            const dc = PA.qp(dq, 0.5, 0.5); PA.glow(c, dc.x, dc.y, 90, '#38bdf8', 0.10, 0.6);
+            // kitchenette upper cabinets
+            PA.poly(PA.wallQuad(w, 62, 204, 66, 100), PA.mul('#7b5233', fi.bright * 1.1));
+            PA.poly(PA.fq(PA.wallQuad(w, 62, 204, 66, 100), 0.04, 0.08, 0.48, 0.92), 'rgba(0,0,0,0.18)');
+            PA.poly(PA.fq(PA.wallQuad(w, 62, 204, 66, 100), 0.52, 0.08, 0.96, 0.92), 'rgba(0,0,0,0.18)');
+          } else if (w.n === 'W' || w.n === 'E') {
+            for (let s = 110; s + 120 < L - 40; s += 210) PA.skyWindow(w, s, s + 120, 52, 108, now, s % 5);
+          } else {
+            for (let s = 60; s + 120 < L; s += 230) {
+              const sx = L - (s + 120); // S wall runs east->west
+              if (Math.abs((L - (s + 60)) - 700) < 150) continue;
+              PA.skyWindow(w, s, s + 120, 52, 108, now, (s / 7) % 5 | 0);
+              void sx;
+            }
+          }
+          void sc;
+        });
+        void mood;
+      };
+
+      // ---- props ---------------------------------------------------------------------
+      PA.isoPropList = (now) => {
+        const items = [];
+        const add = (cx, cy, draw, shadow, bias = 0) => items.push({ key: PA.depth(cx, cy) + bias, draw, shadow });
+        const mood = LIGHTING_MODES[state.lightingIdx];
+        const box = (x, y, w, d, h, col, o, bias) => {
+          add(x + w / 2, y + d / 2, () => PA.box(x, y, w, d, h, col, o), (o && o.z) ? null : [x, y, w, d, h], bias || 0);
+        };
+
+        // Reception desk (segmented so agents sort correctly against it)
+        for (let sx = 62; sx < 248; sx += 62) {
+          box(sx, 420, Math.min(62, 248 - sx), 54, 40, { top: '#b45309', side: '#7c2d12' }, {
+            face: (n, q) => { if (n === 'S') { PA.poly(PA.fq(q, 0.08, 0.2, 0.92, 0.85), 'rgba(0,0,0,0.20)'); } }
+          });
+        }
+        box(96, 436, 38, 5, 24, '#0f172a', {
+          z: 40,
+          face: (n, q) => { if (n === 'S') PA.poly(PA.fq(q, 0.07, 0.08, 0.93, 0.8), '#0ea5e9'); }
+        }, 14);
+        box(196, 430, 20, 14, 10, '#1e293b', { z: 40, top: (p) => { PA.poly(PA.fq([p[0], p[1], p[2], p[3]], 0.5, 0.2, 0.8, 0.5), Math.floor(now / 500) % 2 ? '#22c55e' : '#14532d'); } }, 14);
+        // turnstile
+        box(40, 486, 8, 10, 36, '#475569'); box(40, 522, 8, 10, 36, '#475569');
+        box(26, 498, 16, 4, 4, '#94a3b8', { z: 22 }, 6); box(46, 498, 16, 4, 4, '#94a3b8', { z: 22 }, 6);
+        // visitor chairs
+        [96, 150, 204].forEach((cx) => {
+          box(cx - 13, 528, 26, 26, 12, { top: '#2f55c9', side: '#1e3a8a' });
+          box(cx - 13, 553, 26, 5, 38, { top: '#2f55c9', side: '#1e3a8a' });
+        });
+        // Sofa
+        box(84, 574, 182, 50, 16, { top: '#991b1b', side: '#7f1d1d' });
+        box(84, 614, 182, 10, 42, { top: '#b91c1c', side: '#7f1d1d' });
+        box(84, 574, 10, 50, 30, { top: '#b91c1c', side: '#7f1d1d' });
+        box(256, 574, 10, 50, 30, { top: '#b91c1c', side: '#7f1d1d' });
+        box(96, 578, 76, 34, 8, { top: '#c42323', side: '#991b1b' }, {}, 6); box(176, 578, 76, 34, 8, { top: '#c42323', side: '#991b1b' }, {}, 6);
+        // Coffee table + magazine
+        box(322, 592, 86, 30, 16, { top: '#c8731f', side: '#92400e' });
+        box(336, 600, 24, 14, 1.5, '#38bdf8', { z: 16 }, 12); box(368, 602, 20, 12, 1.5, '#f472b6', { z: 16 }, 12);
+        // Arcade cabinet
+        add(503, 594, () => {
+          PA.glow(ctx, isoPoint(503, 600, 70).x, isoPoint(503, 600, 70).y, 60, '#a78bfa', 0.16 + Math.sin(now * 0.006) * 0.03, 0.8);
+          PA.box(480, 572, 46, 44, 98, { top: '#6d28d9', side: '#4c1d95' }, {
+            face: (n, q) => {
+              if (n === 'S') {
+                PA.poly(PA.fq(q, 0.06, 0.03, 0.94, 0.13), Math.floor(now / 400) % 2 ? '#f472b6' : '#be185d');
+                const sc = PA.fq(q, 0.12, 0.19, 0.88, 0.50); PA.poly(sc, '#020617');
+                const sp = Math.floor(now / 260) % 4;
+                PA.poly(PA.fq(q, 0.3 + sp * 0.1, 0.34 - sp * 0.02, 0.4 + sp * 0.1, 0.44 - sp * 0.02), '#fbbf24');
+                PA.poly(PA.fq(q, 0.2, 0.40, 0.28, 0.48), '#ef4444');
+                PA.poly(PA.fq(q, 0.14, 0.56, 0.86, 0.68), '#1e293b');
+                PA.poly(PA.fq(q, 0.24, 0.58, 0.32, 0.64), '#ef4444'); PA.poly(PA.fq(q, 0.40, 0.58, 0.48, 0.64), '#fbbf24'); PA.poly(PA.fq(q, 0.60, 0.58, 0.68, 0.64), '#38bdf8');
+                PA.poly(PA.fq(q, 0.4, 0.78, 0.6, 0.9), '#0f172a');
+              } else {
+                PA.poly(PA.fq(q, 0.1, 0.1, 0.9, 0.9), 'rgba(255,255,255,0.05)');
+                PA.poly(PA.fq(q, 0.0, 0.3, 1.0, 0.36), 'rgba(251,191,36,0.55)');
+              }
+            }
+          });
+        }, [480, 572, 46, 44, 98]);
+        // Water cooler
+        box(584, 580, 22, 22, 44, { top: '#e2e8f0', side: '#94a3b8' });
+        box(587, 583, 16, 16, 24, { top: '#7dd3fc', side: '#38bdf8' }, { z: 44, alpha: 0.78 }, 8);
+        // Kitchenette
+        box(18, 64, 38, 34, 94, { top: '#e2e8f0', side: '#b6c0cc' }, { face: (n, q) => { if (n === 'S') { PA.poly(PA.fq(q, 0.04, 0.48, 0.96, 0.5), 'rgba(0,0,0,0.3)'); PA.poly(PA.fq(q, 0.78, 0.12, 0.86, 0.38), '#64748b'); PA.poly(PA.fq(q, 0.78, 0.56, 0.86, 0.82), '#64748b'); } } });
+        for (let sx = 60; sx < 210; sx += 50) box(sx, 64, 50, 34, 36, { top: '#e5e7eb', side: '#7b5233' }, { face: (n, q) => { if (n === 'S') { PA.poly(PA.fq(q, 0.08, 0.14, 0.92, 0.86), 'rgba(0,0,0,0.20)'); PA.poly(PA.fq(q, 0.44, 0.4, 0.56, 0.46), '#fbbf24'); } } });
+        add(126, 82, () => {
+          PA.box(108, 70, 34, 24, 22, { top: '#d1d5db', side: '#9ca3af' }, { z: 36, face: (n, q) => { if (n === 'S') { PA.poly(PA.fq(q, 0.12, 0.12, 0.88, 0.32), '#111827'); PA.poly(PA.fq(q, 0.4, 0.45, 0.6, 0.62), '#374151'); PA.poly(PA.fq(q, 0.44, 0.35, 0.5, 0.4), '#22c55e'); } } });
+          const sp = isoPoint(126, 84, 62);
+          for (let i = 0; i < 3; i++) { const t = ((now / 1200) + i / 3) % 1; ctx.fillStyle = `rgba(255,255,255,${0.32 * (1 - t)})`; ctx.beginPath(); ctx.arc(sp.x + Math.sin(now * 0.004 + i * 2) * 3, sp.y - t * 22, 2 + t * 3, 0, 7); ctx.fill(); }
+        }, null, 14);
+        box(214, 66, 26, 26, 44, { top: '#e2e8f0', side: '#94a3b8' }); box(217, 69, 20, 20, 24, { top: '#7dd3fc', side: '#38bdf8' }, { z: 44, alpha: 0.78 }, 8);
+        // Server racks
+        [740, 860, 980].forEach((rx, ri) => {
+          add(rx + 50, 346, () => {
+            PA.glow(ctx, isoPoint(rx + 50, 380, 30).x, isoPoint(rx + 50, 380, 30).y, 90, '#38bdf8', 0.07, 0.5);
+            PA.box(rx, 326, 100, 46, 122, { top: '#27324a', side: '#1a2336' }, {
+              face: (n, q) => {
+                if (n === 'S') {
+                  for (let u = 0; u < 8; u++) {
+                    const v0 = 0.06 + u * 0.115;
+                    PA.poly(PA.fq(q, 0.05, v0, 0.95, v0 + 0.092), '#0a0f1c');
+                    for (let l = 0; l < 6; l++) {
+                      const on = (Math.floor(now / (220 + l * 60)) + u * 3 + ri * 5 + l) % 4 < 2;
+                      PA.poly(PA.fq(q, 0.1 + l * 0.065, v0 + 0.034, 0.1 + l * 0.065 + 0.04, v0 + 0.06), on ? (l % 2 ? '#22c55e' : '#38bdf8') : '#1b2438');
+                    }
+                    PA.poly(PA.fq(q, 0.62, v0 + 0.02, 0.93, v0 + 0.07), '#131c30');
+                  }
+                } else {
+                  for (let u = 0; u < 12; u++) PA.poly(PA.fq(q, 0.1, 0.06 + u * 0.075, 0.9, 0.09 + u * 0.075), 'rgba(0,0,0,0.28)');
+                }
+              }
+            });
+          }, [rx, 326, 100, 46, 122]);
+        });
+        box(700, 288, 390, 8, 62, { top: '#334155', side: '#1e293b' });
+        // Conference table, chairs
+        for (let sx = 1148; sx < 1352; sx += 51) box(sx, 392, 51, 58, 4, { top: '#9fbbdc', side: '#6b86a8' }, { z: 28, alpha: 0.88 }, 2);
+        box(1188, 412, 22, 18, 28, '#1e293b'); box(1292, 412, 22, 18, 28, '#1e293b');
+        box(1236, 412, 26, 14, 2, '#0f172a', { z: 32 }, 14);
+        [[1170, 350, 0], [1250, 350, 0], [1330, 350, 0], [1170, 452, 1], [1250, 452, 1], [1330, 452, 1]].forEach(([cx, cy, face]) => {
+          box(cx - 14, cy - 12, 28, 26, 6, { top: '#273449', side: '#111827' }, { z: 14 });
+          box(cx - 3, cy - 2, 6, 6, 14, '#0f172a');
+          if (face === 0) box(cx - 14, cy - 14, 28, 5, 32, { top: '#374151', side: '#111827' }, { z: 14 }, -6);
+          else box(cx - 14, cy + 10, 28, 5, 32, { top: '#374151', side: '#111827' }, { z: 14 }, 6);
+        });
+        // Desks & chairs
+        DESKS.forEach((desk) => {
+          const { x, y } = desk;
+          const occ = state.agents.find((a) => a.deskId === desk.id && Math.hypot(a.x - desk.seatX, a.y - desk.seatY) < 16);
+          const working = occ && occ.status === 'working';
+          const mc = desk.monitorColor;
+          box(x - 56, y - 12, 5, 30, 26, { top: '#475569', side: '#1e293b' });
+          box(x + 51, y - 12, 5, 30, 26, { top: '#475569', side: '#1e293b' });
+          box(x - 52, y + 14, 100, 3, 20, '#273449', { z: 4 });
+          box(x - 58, y - 14, 116, 34, 4, { top: '#a07650', side: '#5e4129' }, { z: 26 }, 2);
+          box(x + 22, y + 0, 20, 20, 38, { top: '#334155', side: '#1e293b' }, { face: (n, q) => { if (n === 'S') { PA.poly(PA.fq(q, 0.2, 0.62, 0.8, 0.76), working ? mc : '#0b1220'); PA.poly(PA.fq(q, 0.7, 0.1, 0.84, 0.18), working ? '#4ade80' : '#334155'); } } });
+          add(x, y - 4, () => {
+            const mon = (mx, mw, mh, seed) => PA.box(mx, y - 6, mw, 4, mh, '#0f172a', {
+              z: 31,
+              face: (n, q) => {
+                if (n === 'S') {
+                  const sc = PA.fq(q, 0.06, 0.08, 0.94, 0.9);
+                  PA.poly(sc, working ? PA.mul(mc, 0.30) : occ ? '#16264a' : '#0a101e');
+                  if (!working && occ) { PA.poly(PA.fq(q, 0.14, 0.2, 0.62, 0.3), PA.mul(mc, 0.9)); PA.poly(PA.fq(q, 0.14, 0.42, 0.44, 0.52), '#64748b'); PA.poly(PA.fq(q, 0.14, 0.64, 0.54, 0.74), '#475569'); }
+                  if (working) {
+                    for (let r = 0; r < 5; r++) {
+                      const sh = Math.floor(now / 140) + seed + r;
+                      PA.poly(PA.fq(q, 0.14, 0.14 + r * 0.15, 0.14 + (0.25 + ((sh * 7) % 5) * 0.1), 0.14 + r * 0.15 + 0.07), ['#fbbf24', '#7dd3fc', '#f9a8d4', '#86efac', '#e2e8f0'][(sh * 3) % 5]);
+                    }
+                    const gp = PA.qp(q, 0.5, 0.5); PA.glow(ctx, gp.x, gp.y + 6, 42, mc, 0.22, 0.7);
+                  }
+                  PA.poly([PA.qp(q, 0.06, 0.08), PA.qp(q, 0.5, 0.08), PA.qp(q, 0.2, 0.9), PA.qp(q, 0.06, 0.9)], 'rgba(255,255,255,0.07)');
+                }
+              }
+            });
+            mon(x - 36, 42, 26, 1); mon(x + 10, 32, 22, 3);
+            PA.box(x - 20, y - 5, 4, 3, 3, '#475569', { z: 30 }); PA.box(x + 24, y - 5, 4, 3, 3, '#475569', { z: 30 });
+            PA.box(x - 22, y + 4, 38, 11, 1.5, { top: '#475569', side: '#1e293b' }, { z: 30 });
+            PA.box(x + 44, y + 2, 7, 7, 8, '#f8fafc', { z: 30 });
+            PA.box(x - 52, y - 8, 9, 9, 2, '#334155', { z: 30 });
+          }, null, 14);
+          // chair (agent faces north toward the desk)
+          box(desk.seatX - 16, desk.seatY - 14, 32, 28, 5, { top: '#4b5d82', side: '#1e293b' }, { z: 15 }, -3);
+          box(desk.seatX - 3, desk.seatY - 3, 6, 6, 15, '#0f172a', {}, -4);
+          box(desk.seatX - 13, desk.seatY + 11, 26, 4, 17, { top: '#6b7da6', side: '#3a4a68' }, { z: 15 }, 4);
+        });
+        // Plants
+        [[247, 96], [683, 96], [28, 540], [848, 520]].forEach(([px, py]) => {
+          add(px, py, () => {
+            PA.box(px - 11, py - 11, 22, 22, 22, { top: '#92400e', side: '#c2410c' });
+            const leaves = [[-6, -2, 36, 11], [7, 2, 38, 12], [0, -6, 50, 12], [-3, 5, 46, 10], [5, -4, 60, 10]];
+            leaves.forEach(([ox, oy, z, r]) => PA.sphere(px + ox, py + oy, z, r, '#22a559'));
+          }, [px - 11, py - 11, 22, 22, 50]);
+        });
+        // Zone signs
+        [[150, 118, 'RECEPTION & SECURITY', '#38bdf8'], [620, 118, 'CODING BULLPEN', '#34d399'], [895, 312, 'R&D SERVER ROOM', '#a78bfa'], [1240, 118, 'EXECUTIVE WAR ROOM', '#fbbf24'], [200, 640, 'LOUNGE', '#f87171']].forEach(([sx, sy, t, col]) => {
+          add(sx, sy, () => {
+            const p = isoPoint(sx, sy, 0.5);
+            ctx.font = 'bold 9px "JetBrains Mono", monospace';
+            const w = ctx.measureText(t).width + 16;
+            ctx.save(); ctx.globalAlpha = 0.9;
+            PA.rrect(ctx, p.x - w / 2, p.y - 7, w, 14, 3); ctx.fillStyle = 'rgba(8,12,24,0.82)'; ctx.fill();
+            ctx.fillStyle = col; ctx.fillRect(p.x - w / 2, p.y + 6, w, 1.5);
+            ctx.textAlign = 'center'; ctx.fillText(t, p.x, p.y + 3);
+            ctx.restore();
+          }, null, -200);
+        });
+        // Glass partitions
+        const glassSeg = (x0, y0, x1, y1) => {
+          add((x0 + x1) / 2, (y0 + y1) / 2, () => {
+            const A = isoPoint(x0, y0, 62), B = isoPoint(x1, y1, 62), B0 = isoPoint(x1, y1, 0), A0 = isoPoint(x0, y0, 0);
+            PA.poly([A, B, B0, A0], 'rgba(147,197,253,0.13)');
+            PA.poly([A, B, isoPoint(x0 + (x1 - x0) * 0.4, y0 + (y1 - y0) * 0.4, 0), A0], 'rgba(255,255,255,0.05)');
+            ctx.strokeStyle = 'rgba(148,163,184,0.85)'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.moveTo(A0.x, A0.y); ctx.lineTo(B0.x, B0.y); ctx.stroke();
+            ctx.strokeStyle = 'rgba(100,116,139,0.9)'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(A0.x, A0.y); ctx.stroke();
+          }, null, 0);
+        };
+        for (let y = 96; y < 430; y += 56) { glassSeg(300, y, 300, Math.min(430, y + 56)); glassSeg(1090, y, 1090, Math.min(430, y + 56)); }
+        for (let y = 520; y < 700; y += 60) { glassSeg(300, y, 300, Math.min(700, y + 60)); glassSeg(1090, y, 1090, Math.min(700, y + 60)); }
+
+        // Supplied office PNG props: draw them as anchored foreground sprites on
+        // top of the geometry. They load independently and fall back silently to
+        // the detailed procedural furniture above until the image is ready.
+        const assetProp = (file, x, y, width, height, bias = 0, alpha = 1) => {
+          const key = `asset/objects/${file}`;
+          let entry = PA.objectAssets?.get(key);
+          if (!entry) {
+            if (!PA.objectAssets) PA.objectAssets = new Map();
+            entry = { image: new Image(), ready: false };
+            entry.image.onload = () => { entry.ready = true; };
+            entry.image.onerror = () => { entry.failed = true; };
+            entry.image.src = key;
+            PA.objectAssets.set(key, entry);
+          }
+          add(x, y, () => {
+            if (!entry.ready) return;
+            const p = isoPoint(x, y, 0);
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(entry.image, Math.round(p.x - width / 2), Math.round(p.y - height), width, height);
+            ctx.restore();
+          }, null, bias);
+        };
+        // High-visibility objects from the supplied Tile pack.
+        assetProp('Tiles/Furniture/office_furniture_counter_reception_curved_01.png', 150, 420, 118, 78, 24);
+        assetProp('Tiles/Furniture/office_furniture_desk_straight_01.png', 420, 340, 96, 62, 20);
+        assetProp('Tiles/Furniture/office_furniture_chair_task_01.png', 420, 395, 48, 72, 26);
+        assetProp('Tiles/Electronics/office_electronics_monitor_single_off_01.png', 420, 324, 45, 42, 32);
+        assetProp('Tiles/Decor/office_decor_plant_broadleaf_01.png', 250, 100, 54, 82, 10);
+        assetProp('Tiles/Decor/office_decor_refrigerator_compact_01.png', 80, 95, 58, 90, 20);
+        assetProp('Tiles/Electronics/office_electronics_printer_small_01.png', 620, 360, 48, 38, 22);
+        assetProp('Tiles/Props/office_props_mug_01.png', 470, 355, 20, 22, 35);
+        void mood;
+        return items;
+      };
+
+      // ---- agents / effects --------------------------------------------------------
+      PA.dirFromWorld = (vx, vy) => {
+        const r = PA.rot(vx + WORLD_W / 2, vy + WORLD_H / 2);
+        const sx = r.x - r.y, sy = (r.x + r.y) * 0.46;
+        if (Math.abs(sx) > Math.abs(sy)) return sx < 0 ? 'left' : 'right';
+        return sy > 0 ? 'down' : 'up';
+      };
+      PA.isoAgent = (ag, now) => {
+        const seat = PA.seatOf(ag);
+        const seated = !!seat && ag.status !== 'walking';
+        const base = isoPoint(ag.x, ag.y, seated ? 8 : 0);
+        const ground = isoPoint(ag.x, ag.y, 0);
+        const sel = ag.id === state.selectedAgentId;
+        PA.contactShadow(ctx, ground.x, ground.y + 2, 22, 9, 0.5);
+        if (sel) PA.selectionRing(ctx, ground.x, ground.y + 2, now, 25);
+        let dir = 'down';
+        if (ag.status === 'walking') dir = PA.dirFromWorld(ag.targetX - ag.x, ag.targetY - ag.y);
+        else if (seated) dir = PA.dirFromWorld(0, -1);
+        const jump = ag.jumpOffset || 0;
+        const scale = 1.75;
+        const r = PA.drawAgentSprite(ctx, ag, base.x, base.y + jump * 0.8, now, dir, scale, { seated });
+        const top = r.top;
+        if (ag.bubble) PA.bubble(ctx, ag.bubble, base.x, top - 30, ag.status === 'working' ? ag.primaryColor : '#475569', now, 4, WORLD_W - 4);
+        PA.nameplate(ctx, ag.name, base.x, ground.y + 12, sel, ag.primaryColor);
+      };
+      PA.isoFX = (now) => {
+        const c = ctx;
+        state.packets.forEach((pkt) => {
+          const fx = pkt.fromX + (pkt.toX - pkt.fromX) * pkt.progress, fy = pkt.fromY + (pkt.toY - pkt.fromY) * pkt.progress;
+          const z = 70 + Math.sin(pkt.progress * Math.PI) * 52;
+          for (let t = 1; t <= 6; t++) {
+            const tp = Math.max(0, pkt.progress - t * 0.035);
+            const p = isoPoint(pkt.fromX + (pkt.toX - pkt.fromX) * tp, pkt.fromY + (pkt.toY - pkt.fromY) * tp, 70 + Math.sin(tp * Math.PI) * 52);
+            c.globalAlpha = 0.5 - t * 0.07; c.fillStyle = pkt.color; c.beginPath(); c.arc(p.x, p.y, 5 - t * 0.5, 0, 7); c.fill();
+          }
+          c.globalAlpha = 1;
+          const p = isoPoint(fx, fy, z);
+          PA.glow(c, p.x, p.y, 22, pkt.color, 0.55);
+          c.fillStyle = pkt.color; c.beginPath(); c.arc(p.x, p.y, 6 + Math.sin(now * 0.022) * 1.5, 0, 7); c.fill();
+          c.fillStyle = '#fff'; c.beginPath(); c.arc(p.x, p.y, 2.6, 0, 7); c.fill();
+          if (pkt.label) {
+            c.font = 'bold 9px "JetBrains Mono", monospace';
+            const w = c.measureText(pkt.label).width + 10;
+            PA.rrect(c, p.x - w / 2, p.y - 25, w, 14, 4); c.fillStyle = 'rgba(8,12,24,0.94)'; c.fill();
+            c.fillStyle = '#fbbf24'; c.textAlign = 'center'; c.fillText(pkt.label, p.x, p.y - 15);
+          }
+        });
+        state.emotes.forEach((em) => {
+          const p = isoPoint(em.x, em.y + 60, 40);
+          c.globalAlpha = Math.max(0, em.life);
+          c.font = 'bold 12px "JetBrains Mono", monospace'; c.fillStyle = em.color; c.textAlign = 'center';
+          c.fillText(em.text, p.x, p.y - (1 - em.life) * 16);
+        });
+        c.globalAlpha = 1;
+      };
+
+      PA.drawIso = (now) => {
+        const c = ctx, cam = state.camera;
+        cam.angle += (cam.targetAngle - cam.angle) * 0.16;
+        // backdrop
+        const bg = c.createRadialGradient(WORLD_W / 2, WORLD_H / 2, 60, WORLD_W / 2, WORLD_H / 2, WORLD_W * 0.62);
+        bg.addColorStop(0, '#1b2438'); bg.addColorStop(1, '#090d18');
+        c.fillStyle = bg; c.fillRect(0, 0, WORLD_W, WORLD_H);
+        PA.drawFloor(now);
+        PA.drawWalls(now);
+        const items = PA.isoPropList(now);
+        // shadows first so they never paint over props
+        items.forEach((it) => { if (it.shadow) PA.shadow(...it.shadow); });
+        state.agents.forEach((ag) => {
+          const g = isoPoint(ag.x, ag.y, 0);
+          void g;
+          items.push({ key: PA.depth(ag.x, ag.y) + 0.5, draw: () => PA.isoAgent(ag, now) });
+        });
+        items.sort((a, b) => a.key - b.key);
+        items.forEach((it) => it.draw());
+        PA.isoFX(now);
+      };
+
       function drawAgent(ag, isSelected, now) {
         const px = Math.round(ag.x);
         const groundY = Math.round(ag.y);
-        const py = Math.round(ag.y + (ag.jumpOffset || 0));
-        const isWalking = ag.status === 'walking';
+        const feetY = groundY + 16;
+        const jump = ag.jumpOffset || 0;
         const isWorking = ag.status === 'working';
-        const isCoffee = ag.status === 'coffee';
-        const phase = ag.frame * 0.28;
+        const isWalking = ag.status === 'walking';
 
-        const bobY = isWalking
-          ? Math.abs(Math.sin(phase)) * -5
-          : isWorking
-          ? Math.sin(now * 0.026) * 2
-          : Math.sin(now * 0.005 + ag.id.charCodeAt(0)) * 2;
-
-        const skin = ag.skinColor;
-        const skinDark = shade(skin, -26);
-        const skinLight = shade(skin, 20);
-        const cloth = ag.primaryColor;
-        const clothLight = shade(cloth, 30);
-        const clothDark = shade(cloth, -34);
-        const clothDarker = shade(cloth, -58);
-        const hair = ag.hairColor;
-        const hairLight = shade(hair, 34);
-
-        // Selection Ring on Floor
-        if (isSelected) {
-          ctx.strokeStyle = '#fbbf24';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.ellipse(px, groundY + 16, 23, 9, 0, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-
-        // Two-layer floor shadow
-        pxRect(px - 13, groundY + 12, 26, 7, 'rgba(0,0,0,0.40)');
-        pxRect(px - 9, groundY + 11, 18, 4, 'rgba(0,0,0,0.28)');
+        if (isSelected) PA.selectionRing(ctx, px, feetY, now, 24);
+        PA.contactShadow(ctx, px, feetY, 21, 7, 0.5);
 
         const spriteImg = getAgentSprite(ag);
-
         if (spriteImg) {
-          // Custom per-agent asset (PNG/WebP) drawn as a chibi figurine
+          // Custom per-agent asset (PNG/WebP) drawn as a figurine
+          const phase = ag.frame * 0.28;
           const targetH = 104;
           const ratio = spriteImg.width / (spriteImg.height || 1);
           const targetW = Math.round(targetH * ratio);
-          const bob = isWalking ? Math.abs(Math.sin(phase)) * -4 : bobY * 0.6;
+          const bob = isWalking ? Math.abs(Math.sin(phase)) * -4 : Math.sin(now * 0.005 + ag.id.charCodeAt(0)) * 1.2;
           ctx.imageSmoothingEnabled = true;
-          ctx.drawImage(
-            spriteImg,
-            Math.round(px - targetW / 2),
-            Math.round(groundY + 16 - targetH + bob),
-            targetW,
-            targetH
-          );
+          ctx.drawImage(spriteImg, Math.round(px - targetW / 2), Math.round(feetY - targetH + bob + jump), targetW, targetH);
           ctx.imageSmoothingEnabled = false;
         } else {
-        ctx.save();
-        ctx.translate(px, groundY + 16);
-        ctx.scale(AGENT_SPRITE_SCALE, AGENT_SPRITE_SCALE);
-        ctx.translate(-px, -(groundY + 16));
-
-        // === LEGS & SHOES (4-frame stride, 3-tone) ===
-        const lLeg = isWalking ? Math.sin(phase) * 4 : 0;
-        const rLeg = isWalking ? -Math.sin(phase) * 4 : 0;
-        pxRect(px - 9, py + 1 + lLeg * 0.35, 7, 10, clothDarker);
-        pxRect(px + 2, py + 1 + rLeg * 0.35, 7, 10, clothDarker);
-        pxRect(px - 9, py + 1 + lLeg * 0.35, 3, 10, shade(cloth, -44));
-        pxRect(px + 2, py + 1 + rLeg * 0.35, 3, 10, shade(cloth, -44));
-        pxRect(px - 9, py + 8 + lLeg * 0.35, 7, 3, clothDark);
-        pxRect(px + 2, py + 8 + rLeg * 0.35, 7, 3, clothDark);
-        pxRect(px - 10, py + 11 + lLeg, 9, 4, '#141b2a');
-        pxRect(px - 10, py + 11 + lLeg, 9, 2, '#2b3752');
-        pxRect(px + 1, py + 11 + rLeg, 9, 4, '#141b2a');
-        pxRect(px + 1, py + 11 + rLeg, 9, 2, '#2b3752');
-
-        // === TORSO (outlined, shaded jacket with shirt + lapels) ===
-        const bodyY = py - 22 + bobY;
-        pxRect(px - 13, bodyY, 26, 22, '#0b1220');
-        pxRect(px - 12, bodyY + 1, 24, 20, cloth);
-        pxRect(px - 12, bodyY + 1, 5, 20, clothLight);
-        pxRect(px + 7, bodyY + 1, 5, 20, clothDark);
-        pxRect(px - 8, bodyY + 1, 16, 3, shade(cloth, 14));
-        pxRect(px - 4, bodyY + 2, 8, 15, ag.secondaryColor);
-        pxRect(px - 4, bodyY + 2, 2, 15, shade(ag.secondaryColor, -30));
-        pxRect(px - 8, bodyY + 2, 4, 6, clothDarker);
-        pxRect(px + 4, bodyY + 2, 4, 6, clothDarker);
-        pxRect(px - 1, bodyY + 8, 2, 2, '#0f172a');
-        pxRect(px - 1, bodyY + 13, 2, 2, '#0f172a');
-        pxRect(px - 12, bodyY + 19, 24, 2, clothDarker);
-        pxRect(px + 5, bodyY + 7, 4, 4, ag.secondaryColor);
-
-        // === ARMS & HANDS ===
-        const lArm = isWorking ? (Math.floor(now / 100) % 2 === 0 ? -2 : 0) : 0;
-        const rArm = isWorking ? (Math.floor(now / 100) % 2 === 1 ? -2 : 0) : 0;
-        const armSwing = isWalking ? Math.sin(phase) * 2 : 0;
-        pxRect(px - 19, bodyY + 3 + lArm + armSwing, 6, 15, clothDark);
-        pxRect(px - 19, bodyY + 3 + lArm + armSwing, 2, 15, shade(cloth, -10));
-        pxRect(px - 19, bodyY + 15 + lArm + armSwing, 6, 5, skinDark);
-        pxRect(px + 13, bodyY + 3 + rArm - armSwing, 6, 15, clothDark);
-        pxRect(px + 17, bodyY + 3 + rArm - armSwing, 2, 15, shade(cloth, -52));
-        pxRect(px + 13, bodyY + 15 + rArm - armSwing, 6, 5, skin);
-
-        // Sipping Coffee Mug during Coffee Break
-        if (isCoffee) {
-          const sipY = Math.sin(now * 0.008) > 0.25 ? -6 : 0;
-          pxRect(px + 14, bodyY + 13 + sipY, 8, 8, '#f8fafc');
-          pxRect(px + 15, bodyY + 15 + sipY, 6, 3, '#78350f');
-          pxRect(px + 21, bodyY + 15 + sipY, 2, 4, '#f8fafc');
-          if (Math.floor(now / 300) % 2 === 0) {
-            pxRect(px + 17, bodyY + 9 + sipY, 2, 3, 'rgba(248,250,252,0.5)');
+          let dir = 'down';
+          if (isWalking) {
+            const vx = ag.targetX - ag.x, vy = ag.targetY - ag.y;
+            dir = Math.abs(vy) > Math.abs(vx) * 1.3 ? (vy < 0 ? 'up' : 'down') : (vx < 0 ? 'left' : 'right');
           }
+          PA.drawAgentSprite(ctx, ag, px, feetY + jump, now, dir, 2);
         }
 
-        // === NECK & HEAD (outlined, 3-tone) ===
-        const headY = bodyY - 22;
-        pxRect(px - 4, bodyY - 4, 8, 6, skinDark);
-        pxRect(px - 12, headY - 1, 24, 22, '#0b1220');
-        pxRect(px - 11, headY, 22, 20, skin);
-        pxRect(px - 11, headY, 6, 20, skinLight);
-        pxRect(px + 6, headY, 5, 20, skinDark);
-        pxRect(px - 11, headY + 16, 22, 4, shade(skin, -34));
-        pxRect(px - 14, headY + 8, 3, 7, skinDark);
-        pxRect(px + 11, headY + 8, 3, 7, skinDark);
-
-        // === HAIR (layered volume + shine) ===
-        pxRect(px - 13, headY - 5, 26, 9, hair);
-        pxRect(px - 13, headY - 5, 26, 2, hairLight);
-        pxRect(px - 13, headY + 2, 4, 10, hair);
-        pxRect(px + 9, headY + 2, 4, 10, hair);
-        pxRect(px - 9, headY - 7, 12, 3, hair);
-
-        // === FACE ===
-        const lookShift = ag.facing === 'left' ? -2 : ag.facing === 'right' ? 2 : 0;
-        const seed = ag.id.charCodeAt(0) * 310;
-        const blink = Math.floor((now + seed) / 3200) % 10 === 0 && (now + seed) % 3200 < 140;
-        const eyeY = headY + 7;
-
-        pxRect(px - 8 + lookShift, eyeY - 3, 6, 2, shade(hair, 12));
-        pxRect(px + 3 + lookShift, eyeY - 3, 6, 2, shade(hair, 12));
-
-        if (!blink) {
-          pxRect(px - 8 + lookShift, eyeY, 6, 5, '#f8fafc');
-          pxRect(px + 3 + lookShift, eyeY, 6, 5, '#f8fafc');
-          pxRect(px - 6 + lookShift, eyeY + 1, 3, 4, '#0f172a');
-          pxRect(px + 5 + lookShift, eyeY + 1, 3, 4, '#0f172a');
-          pxRect(px - 6 + lookShift, eyeY + 1, 1, 1, '#ffffff');
-          pxRect(px + 5 + lookShift, eyeY + 1, 1, 1, '#ffffff');
-        } else {
-          pxRect(px - 8 + lookShift, eyeY + 2, 6, 2, '#0f172a');
-          pxRect(px + 3 + lookShift, eyeY + 2, 6, 2, '#0f172a');
-        }
-
-        pxRect(px - 1 + lookShift, eyeY + 6, 2, 2, shade(skin, -30));
-
-        const mouthY = eyeY + 10;
-        if (isWorking) {
-          pxRect(px - 2 + lookShift, mouthY, 4, 3, '#8a3b2c');
-        } else if (isCoffee) {
-          pxRect(px - 2 + lookShift, mouthY + 1, 4, 2, '#8a3b2c');
-        } else {
-          pxRect(px - 3 + lookShift, mouthY, 6, 2, '#8a3b2c');
-        }
-
-        ctx.fillStyle = 'rgba(244,114,182,0.28)';
-        ctx.fillRect(px - 10 + lookShift, eyeY + 6, 3, 2);
-        ctx.fillRect(px + 7 + lookShift, eyeY + 6, 3, 2);
-
-        // === ACCESSORIES (high detail) ===
-        if (ag.accessory === 'glasses') {
-          pxRect(px - 9 + lookShift, eyeY - 1, 8, 7, 'rgba(191,219,254,0.30)');
-          pxRect(px + 1 + lookShift, eyeY - 1, 8, 7, 'rgba(191,219,254,0.30)');
-          pxRect(px - 9 + lookShift, eyeY - 1, 8, 2, 'rgba(255,255,255,0.55)');
-          pxRect(px + 1 + lookShift, eyeY - 1, 8, 2, 'rgba(255,255,255,0.55)');
-          pxRect(px - 1 + lookShift, eyeY + 1, 2, 1, '#334155');
-          pxRect(px - 10 + lookShift, eyeY + 1, 1, 3, '#334155');
-          pxRect(px + 9 + lookShift, eyeY + 1, 1, 3, '#334155');
-        } else if (ag.accessory === 'headset') {
-          pxRect(px - 14, headY - 1, 28, 3, '#0e7490');
-          pxRect(px - 15, headY + 6, 4, 10, '#06b6d4');
-          pxRect(px + 11, headY + 6, 4, 10, '#06b6d4');
-          pxRect(px - 15, headY + 6, 4, 2, '#67e8f9');
-          pxRect(px + 11, headY + 6, 4, 2, '#67e8f9');
-          pxRect(px + 8, headY + 15, 7, 2, '#38bdf8');
-          pxRect(px + 6, headY + 16, 3, 3, '#0ea5e9');
-        } else if (ag.accessory === 'cap') {
-          pxRect(px - 14, headY - 8, 28, 8, '#0284c7');
-          pxRect(px - 14, headY - 8, 28, 2, '#38bdf8');
-          pxRect(px - 17, headY - 1, 22, 3, '#0369a1');
-          pxRect(px - 2, headY - 5, 4, 4, '#fbbf24');
-        } else if (ag.accessory === 'beret') {
-          pxRect(px - 15, headY - 7, 30, 6, '#7e22ce');
-          pxRect(px - 15, headY - 7, 30, 2, '#a855f7');
-          pxRect(px + 8, headY - 10, 4, 4, '#fbbf24');
-        } else if (ag.accessory === 'crown') {
-          pxRect(px - 11, headY - 7, 22, 5, '#f59e0b');
-          pxRect(px - 11, headY - 7, 22, 2, '#fde047');
-          pxRect(px - 11, headY - 11, 4, 4, '#fbbf24');
-          pxRect(px - 2, headY - 13, 4, 6, '#fbbf24');
-          pxRect(px + 7, headY - 11, 4, 4, '#fbbf24');
-          pxRect(px - 1, headY - 5, 2, 2, '#ef4444');
-        } else if (ag.accessory === 'monocle') {
-          pxRect(px + 1 + lookShift, eyeY - 2, 10, 9, 'rgba(191,219,254,0.32)');
-          pxRect(px + 1 + lookShift, eyeY - 2, 10, 1, 'rgba(255,255,255,0.65)');
-          pxRect(px + 1 + lookShift, eyeY - 2, 1, 9, '#b45309');
-          pxRect(px + 10 + lookShift, eyeY - 2, 1, 9, '#b45309');
-          pxRect(px + 1 + lookShift, eyeY + 6, 10, 1, '#b45309');
-          pxRect(px + 11 + lookShift, eyeY + 4, 5, 1, '#b45309');
-        } else if (ag.accessory === 'visor') {
-          pxRect(px - 13 + lookShift, eyeY - 2, 26, 7, 'rgba(56,189,248,0.42)');
-          pxRect(px - 13 + lookShift, eyeY - 2, 26, 2, 'rgba(224,242,254,0.75)');
-          pxRect(px - 14, eyeY - 1, 2, 5, '#0f172a');
-          pxRect(px + 12, eyeY - 1, 2, 5, '#0f172a');
-        }
-        ctx.restore();
-        }
-
-        // Crisp Nameplate Pill
-        ctx.font = 'bold 10px "JetBrains Mono", monospace';
-        const nw = ctx.measureText(ag.name).width + 10;
-        pxRect(px - nw / 2, groundY + 20, nw, 14, 'rgba(9, 13, 22, 0.92)');
-        ctx.fillStyle = isSelected ? '#fbbf24' : '#f8fafc';
-        ctx.textAlign = 'center';
-        ctx.fillText(ag.name, px, groundY + 30);
-
-        // Floating Pixel Speech Bubble with Tail Pointer
+        PA.nameplate(ctx, ag.name, px, groundY + 20, isSelected, ag.primaryColor);
         if (ag.bubble) {
-          ctx.font = '600 10px "Inter", sans-serif';
-          const bw = Math.min(188, Math.max(66, ctx.measureText(ag.bubble).width + 16));
-          const bh = 20;
-          const bx = Math.max(8, Math.min(WORLD_W - bw - 8, px - bw / 2));
-          const by = groundY - 96 + Math.sin(now * 0.006) * 1.5;
-
-          pxRect(bx - 1, by - 1, bw + 2, bh + 2, isWorking ? ag.primaryColor : '#475569');
-          pxRect(bx, by, bw, bh, '#0f172a');
-          pxRect(px - 3, by + bh, 6, 3, '#0f172a');
-
-          ctx.fillStyle = '#f8fafc';
-          ctx.textAlign = 'center';
-          ctx.fillText(ag.bubble, bx + bw / 2, by + 13, bw - 8);
+          PA.bubble(ctx, ag.bubble, px, groundY - 118, isWorking ? ag.primaryColor : '#475569', now, 0, WORLD_W);
         }
       }
 
@@ -4731,88 +5862,8 @@
         };
       }
 
-      function isoBox(x, y, w, d, h, top, side, front, label = '') {
-        const a = isoPoint(x, y, h), b = isoPoint(x + w, y, h);
-        const c = isoPoint(x + w, y + d, h), d2 = isoPoint(x, y + d, h);
-        const ab = isoPoint(x, y, 0), bb = isoPoint(x + w, y, 0);
-        const cb = isoPoint(x + w, y + d, 0), db = isoPoint(x, y + d, 0);
-        drawIsoPolygon([a, b, c, d2], top, '#64748b');
-        drawIsoPolygon([d2, c, cb, db], side, '#111827');
-        drawIsoPolygon([b, c, cb, bb], front, '#0f172a');
-        if (label) {
-          const lp = isoPoint(x + w / 2, y + d / 2, h + 8);
-          ctx.font = 'bold 9px "JetBrains Mono", monospace';
-          ctx.textAlign = 'center';
-          ctx.fillStyle = '#f8fafc';
-          ctx.fillText(label, lp.x, lp.y);
-        }
-      }
-
-      function drawIsoAgent(ag, now) {
-        const bob = ag.status === 'walking' ? Math.abs(Math.sin(ag.frame * 0.28)) * 3 : Math.sin(now * 0.004 + ag.id.length) * 1.5;
-        const base = isoPoint(ag.x, ag.y, 0);
-        const foot = isoPoint(ag.x, ag.y, 7);
-        const body = isoPoint(ag.x, ag.y, 32 + bob);
-        const head = isoPoint(ag.x, ag.y, 61 + bob);
-        ctx.fillStyle = 'rgba(0,0,0,.38)';
-        ctx.beginPath(); ctx.ellipse(base.x, base.y + 3, 19, 8, 0, 0, Math.PI * 2); ctx.fill();
-        // legs and torso are vertical extrusions, not flat sprites
-        isoBox(ag.x - 9, ag.y - 6, 8, 12, 17, '#334155', '#111827', '#1e293b');
-        isoBox(ag.x + 1, ag.y - 6, 8, 12, 17, '#334155', '#111827', '#1e293b');
-        isoBox(ag.x - 13, ag.y - 8, 26, 16, 27 + bob, ag.primaryColor, shade(ag.primaryColor, -45), shade(ag.primaryColor, -25));
-        // head as a shaded 3D block with hair cap and face highlight
-        isoBox(ag.x - 12, ag.y - 8, 24, 16, 23, ag.skinColor, shade(ag.skinColor, -28), shade(ag.skinColor, 10));
-        const hp = isoPoint(ag.x, ag.y - 8, 86 + bob);
-        ctx.fillStyle = ag.hairColor;
-        ctx.beginPath(); ctx.ellipse(hp.x, hp.y, 13, 8, 0, Math.PI, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(hp.x - 7, hp.y + 2, 3, 3); ctx.fillRect(hp.x + 4, hp.y + 2, 3, 3);
-        ctx.font = 'bold 10px "JetBrains Mono", monospace';
-        ctx.textAlign = 'center'; ctx.fillStyle = '#f8fafc';
-        ctx.fillText(ag.name, hp.x, hp.y - 14);
-      }
-
       function drawIsoOfficeScene(now) {
-        const mood = LIGHTING_MODES[state.lightingIdx];
-        ctx.fillStyle = mood.id === 'night' ? '#070b16' : '#b9d8e8';
-        ctx.fillRect(0, 0, WORLD_W, WORLD_H);
-        // Huge diamond floor plane with individual tile depth lines
-        const floor = [isoPoint(0, 0), isoPoint(WORLD_W, 0), isoPoint(WORLD_W, WORLD_H), isoPoint(0, WORLD_H)];
-        drawIsoPolygon(floor, '#263442', '#0f172a');
-        for (let x = 0; x <= WORLD_W; x += 100) {
-          const a = isoPoint(x, 0, 1), b = isoPoint(x, WORLD_H, 1);
-          ctx.strokeStyle = 'rgba(148,163,184,.16)'; ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-        }
-        for (let y = 0; y <= WORLD_H; y += 100) {
-          const a = isoPoint(0, y, 2), b = isoPoint(WORLD_W, y, 2);
-          ctx.strokeStyle = 'rgba(148,163,184,.16)';
-          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-        }
-        // Raised architectural room volumes
-        isoBox(20, 35, 280, 250, 72, '#29465a', '#132332', '#1e3446', 'RECEPTION');
-        isoBox(330, 35, 650, 250, 72, '#244b48', '#102b2b', '#183c3b', 'CODING BULLPEN');
-        isoBox(1010, 35, 360, 250, 72, '#4b3a62', '#241a35', '#35264b', 'WAR ROOM');
-        isoBox(700, 330, 300, 290, 84, '#342b55', '#19152f', '#252040', 'SERVER ROOM');
-        isoBox(1010, 330, 360, 290, 72, '#57402e', '#2a1d16', '#3b2b20', 'LOUNGE');
-        // Furniture volumes
-        DESKS.forEach((desk) => {
-          isoBox(desk.x - 32, desk.y - 22, 64, 34, 24, '#9a613d', '#4a2d20', '#6b3f28');
-          isoBox(desk.x - 22, desk.y - 14, 44, 5, 26, '#172b42', '#07111e', desk.monitorColor);
-          isoBox(desk.x - 8, desk.y + 18, 16, 14, 20, '#334155', '#111827', '#1e293b');
-        });
-        [740, 850, 960].forEach((x, i) => {
-          isoBox(x, 370, 76, 34, 130, '#202b3d', '#0b1220', '#111827', `NODE-${i + 1}`);
-          for (let l = 0; l < 7; l++) {
-            const p = isoPoint(x + 12 + (l % 3) * 18, 365, 30 + l * 13);
-            ctx.fillStyle = (Math.floor(now / 300) + l + i) % 3 ? '#22c55e' : '#38bdf8';
-            ctx.fillRect(p.x, p.y, 4, 4);
-          }
-        });
-        isoBox(1080, 430, 260, 100, 18, '#6b4937', '#2d211a', '#4c3327', 'CONFERENCE');
-        isoBox(1120, 530, 200, 90, 12, '#7f1d1d', '#3f1010', '#5b1515', 'BREAKROOM');
-        // Depth-sorted agents
-        [...state.agents].sort((a, b) => a.x + a.y - (b.x + b.y)).forEach((ag) => drawIsoAgent(ag, now));
+        PA.drawIso(now);
       }
 
       function applyCameraTransform() {
@@ -4985,6 +6036,7 @@
         if (mood.ambientTint) {
           pxRect(0, 0, WORLD_W, WORLD_H, mood.ambientTint);
         }
+        PA.postFX(ctx, now);
 
         requestAnimationFrame(tick);
       }
@@ -4992,13 +6044,27 @@
       // Canvas Click Handler
       canvas.addEventListener('click', (e) => {
         const rect = canvas.getBoundingClientRect();
-        const cx = (e.clientX - rect.left) * (WORLD_W / rect.width);
-        const cy = (e.clientY - rect.top) * (WORLD_H / rect.height);
+        let cx = (e.clientX - rect.left) * (WORLD_W / rect.width);
+        let cy = (e.clientY - rect.top) * (WORLD_H / rect.height);
 
         // 1. Clicked on an Agent?
-        const hitAgent = [...state.agents]
-          .reverse()
-          .find((a) => Math.abs(cx - a.x) < 27 && cy >= a.y - 50 && cy <= a.y + 26);
+        let hitAgent;
+        if (state.camera.iso) {
+          const sx = cx, sy = cy;
+          hitAgent = [...state.agents]
+            .sort((a, b) => PA.depth(a.x, a.y) - PA.depth(b.x, b.y))
+            .reverse()
+            .find((a) => {
+              const b = isoPoint(a.x, a.y, 0);
+              return Math.abs(sx - b.x) < 26 && sy >= b.y - 92 && sy <= b.y + 14;
+            });
+          const wp = PA.unproject(sx, sy);
+          cx = wp.x; cy = wp.y;
+        } else {
+          hitAgent = [...state.agents]
+            .reverse()
+            .find((a) => Math.abs(cx - a.x) < 27 && cy >= a.y - 84 && cy <= a.y + 26);
+        }
 
         if (hitAgent) {
           state.selectedAgentId = hitAgent.id;
@@ -5323,115 +6389,15 @@
           bubble: ''
         };
 
-        // Temporarily override global ctx/WORLD_W for preview
-        const oldCtx = ctx;
-        const oldWW = WORLD_W;
-        window.ctx = pCtx;
-        window.WORLD_W = pCanvas.width;
-
-        // Draw centered at x = 96, y = 140
-        const px = 96;
-        const py = 120;
-        const skin = dummyAgent.skinColor;
-        const skinDark = shade(skin, -26);
-        const skinLight = shade(skin, 20);
-        const cloth = dummyAgent.primaryColor;
-        const clothLight = shade(cloth, 30);
-        const clothDark = shade(cloth, -34);
-        const clothDarker = shade(cloth, -58);
-        const hair = dummyAgent.hairColor;
-        const hairLight = shade(hair, 34);
-
-        // Floor shadow
-        pCtx.fillStyle = 'rgba(0,0,0,0.40)';
-        pCtx.fillRect(px - 13, py + 12, 26, 7);
-
-        // Legs
-        pCtx.fillStyle = clothDarker;
-        pCtx.fillRect(px - 9, py + 1, 7, 10);
-        pCtx.fillRect(px + 2, py + 1, 7, 10);
-        pCtx.fillStyle = '#141b2a';
-        pCtx.fillRect(px - 10, py + 11, 9, 4);
-        pCtx.fillRect(px + 1, py + 11, 9, 4);
-
-        // Torso
-        const bodyY = py - 22;
-        pCtx.fillStyle = '#0b1220';
-        pCtx.fillRect(px - 13, bodyY, 26, 22);
-        pCtx.fillStyle = cloth;
-        pCtx.fillRect(px - 12, bodyY + 1, 24, 20);
-        pCtx.fillStyle = clothLight;
-        pCtx.fillRect(px - 12, bodyY + 1, 5, 20);
-        pCtx.fillStyle = clothDark;
-        pCtx.fillRect(px + 7, bodyY + 1, 5, 20);
-        pCtx.fillStyle = dummyAgent.secondaryColor;
-        pCtx.fillRect(px - 4, bodyY + 2, 8, 15);
-
-        // Arms
-        pCtx.fillStyle = clothDark;
-        pCtx.fillRect(px - 19, bodyY + 3, 6, 15);
-        pCtx.fillStyle = skinDark;
-        pCtx.fillRect(px - 19, bodyY + 15, 6, 5);
-        pCtx.fillStyle = clothDark;
-        pCtx.fillRect(px + 13, bodyY + 3, 6, 15);
-        pCtx.fillStyle = skin;
-        pCtx.fillRect(px + 13, bodyY + 15, 6, 5);
-
-        // Head
-        const headY = bodyY - 22;
-        pCtx.fillStyle = skinDark;
-        pCtx.fillRect(px - 4, bodyY - 4, 8, 6);
-        pCtx.fillStyle = '#0b1220';
-        pCtx.fillRect(px - 12, headY - 1, 24, 22);
-        pCtx.fillStyle = skin;
-        pCtx.fillRect(px - 11, headY, 22, 20);
-        pCtx.fillStyle = skinLight;
-        pCtx.fillRect(px - 11, headY, 6, 20);
-
-        // Hair
-        pCtx.fillStyle = hair;
-        pCtx.fillRect(px - 13, headY - 5, 26, 9);
-        pCtx.fillStyle = hairLight;
-        pCtx.fillRect(px - 13, headY - 5, 26, 2);
-
-        // Face (looking down)
-        const eyeY = headY + 7;
-        pCtx.fillStyle = '#f8fafc';
-        pCtx.fillRect(px - 8, eyeY, 6, 5);
-        pCtx.fillRect(px + 3, eyeY, 6, 5);
-        pCtx.fillStyle = '#0f172a';
-        pCtx.fillRect(px - 6, eyeY + 1, 3, 4);
-        pCtx.fillRect(px + 5, eyeY + 1, 3, 4);
-        pCtx.fillStyle = '#8a3b2c';
-        pCtx.fillRect(px - 3, eyeY + 10, 6, 2);
-
-        // Accessory
-        const acc = dummyAgent.accessory;
-        if (acc === 'glasses') {
-          pCtx.fillStyle = 'rgba(191,219,254,0.35)';
-          pCtx.fillRect(px - 9, eyeY - 1, 8, 7);
-          pCtx.fillRect(px + 1, eyeY - 1, 8, 7);
-        } else if (acc === 'headset') {
-          pCtx.fillStyle = '#0e7490';
-          pCtx.fillRect(px - 14, headY - 1, 28, 3);
-          pCtx.fillStyle = '#06b6d4';
-          pCtx.fillRect(px - 15, headY + 6, 4, 10);
-          pCtx.fillRect(px + 11, headY + 6, 4, 10);
-        } else if (acc === 'cap') {
-          pCtx.fillStyle = '#0284c7';
-          pCtx.fillRect(px - 14, headY - 8, 28, 8);
-          pCtx.fillRect(px - 17, headY - 1, 22, 3);
-        } else if (acc === 'beret') {
-          pCtx.fillStyle = '#7e22ce';
-          pCtx.fillRect(px - 15, headY - 7, 30, 6);
-        } else if (acc === 'crown') {
-          pCtx.fillStyle = '#f59e0b';
-          pCtx.fillRect(px - 11, headY - 7, 22, 5);
-          pCtx.fillRect(px - 2, headY - 13, 4, 6);
-        }
-
-        window.ctx = oldCtx;
-        window.WORLD_W = oldWW;
+        // Render with the exact cached pro sprite used in the office
+        dummyAgent.id = 'preview';
+        pCtx.save();
+        const pg = pCtx.createRadialGradient(96, 150, 8, 96, 150, 120);
+        pg.addColorStop(0, 'rgba(56,189,248,0.16)'); pg.addColorStop(1, 'rgba(56,189,248,0)');
+        pCtx.fillStyle = pg; pCtx.fillRect(0, 0, pCanvas.width, pCanvas.height);
+        PA.contactShadow(pCtx, 96, 200, 44, 13, 0.55);
+        PA.drawAgentSprite(pCtx, dummyAgent, 96, 200, performance.now(), 'down', 3, { seated: false });
+        pCtx.restore();
       }
 
       // Populate select options
