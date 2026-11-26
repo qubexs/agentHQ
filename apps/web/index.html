@@ -356,7 +356,7 @@
     canvas#officeCanvas {
       width: 100%;
       height: 100%;
-      max-height: 580px;
+      max-height: 700px;
       object-fit: contain;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
@@ -1399,7 +1399,7 @@
       </div>
 
       <div class="canvas-stage">
-        <canvas id="officeCanvas" width="900" height="580"></canvas>
+        <canvas id="officeCanvas" width="1400" height="720"></canvas>
         <div id="canvasMoodBadge" class="canvas-mood-badge">☀️ SUNLIT DAY</div>
 
         <!-- Selected Agent HUD -->
@@ -1892,8 +1892,8 @@
       // --------------------------------------------------------------------
       // 16-BIT OFFICE WORLD GEOMETRY & LIGHTING THEMES
       // --------------------------------------------------------------------
-      const WORLD_W = 900;
-      const WORLD_H = 580;
+      const WORLD_W = 1400;
+      const WORLD_H = 720;
 
       const LIGHTING_MODES = [
         {
@@ -1929,34 +1929,34 @@
       ];
 
       const WAYPOINTS = {
-        door: { x: 450, y: 534 },
+        door: { x: 700, y: 660 },
         coffeeSpots: [
-          { x: 105, y: 186 },
-          { x: 155, y: 186 },
-          { x: 130, y: 215 },
-          { x: 185, y: 205 },
-          { x: 82, y: 210 },
-          { x: 168, y: 224 }
+          { x: 1200, y: 220 },
+          { x: 1250, y: 220 },
+          { x: 1225, y: 260 },
+          { x: 1280, y: 245 },
+          { x: 1175, y: 250 },
+          { x: 1260, y: 275 }
         ],
-        whiteboard: { x: 450, y: 148 },
+        whiteboard: { x: 950, y: 148 },
         standupSpots: [
-          { x: 365, y: 182 },
-          { x: 420, y: 192 },
-          { x: 480, y: 192 },
-          { x: 535, y: 182 },
-          { x: 395, y: 224 },
-          { x: 505, y: 224 }
+          { x: 880, y: 220 },
+          { x: 930, y: 230 },
+          { x: 980, y: 230 },
+          { x: 1030, y: 220 },
+          { x: 905, y: 265 },
+          { x: 1005, y: 265 }
         ],
-        loungeArcade: { x: 825, y: 452 }
+        loungeArcade: { x: 200, y: 580 }
       };
 
       const DESKS = [
-        { id: 0, x: 150, y: 318, seatX: 150, seatY: 350, monitorColor: '#f59e0b' },
-        { id: 1, x: 330, y: 318, seatX: 330, seatY: 350, monitorColor: '#10b981' },
-        { id: 2, x: 570, y: 318, seatX: 570, seatY: 350, monitorColor: '#38bdf8' },
-        { id: 3, x: 750, y: 318, seatX: 750, seatY: 350, monitorColor: '#ec4899' },
-        { id: 4, x: 240, y: 446, seatX: 240, seatY: 478, monitorColor: '#a855f7' },
-        { id: 5, x: 660, y: 446, seatX: 660, seatY: 478, monitorColor: '#fb923c' }
+        { id: 0, x: 220, y: 360, seatX: 220, seatY: 400, monitorColor: '#f59e0b' },
+        { id: 1, x: 440, y: 360, seatX: 440, seatY: 400, monitorColor: '#10b981' },
+        { id: 2, x: 660, y: 360, seatX: 660, seatY: 400, monitorColor: '#38bdf8' },
+        { id: 3, x: 880, y: 360, seatX: 880, seatY: 400, monitorColor: '#ec4899' },
+        { id: 4, x: 330, y: 530, seatX: 330, seatY: 570, monitorColor: '#a855f7' },
+        { id: 5, x: 770, y: 530, seatX: 770, seatY: 570, monitorColor: '#fb923c' }
       ];
 
       const SWATCH_COLORS = ['#38bdf8', '#f59e0b', '#10b981', '#ec4899', '#a855f7', '#f43f5e'];
