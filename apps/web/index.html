@@ -364,7 +364,28 @@
       display: block;
     }
 
-    /* Lighting Mode Pill Top-Right of Canvas */
+    .iso-controls {
+      position: absolute;
+      left: 12px;
+      top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      z-index: 4;
+      background: rgba(9,13,22,.86);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 4px;
+      backdrop-filter: blur(6px);
+    }
+    .iso-controls span {
+      color: #fbbf24;
+      font: 700 9px var(--font-mono);
+      min-width: 44px;
+      text-align: center;
+    }
+
+
     .canvas-mood-badge {
       position: absolute;
       top: 10px;
@@ -1400,6 +1421,12 @@
 
       <div class="canvas-stage">
         <canvas id="officeCanvas" width="1400" height="720"></canvas>
+        <div class="iso-controls" aria-label="Isometric camera controls">
+          <button id="btnIsoLeft" class="btn btn-sm" title="Rotate office left">⟲</button>
+          <button id="btnIsoMode" class="btn btn-sm btn-amber-soft" title="Toggle isometric camera">◇ ISO</button>
+          <button id="btnIsoRight" class="btn btn-sm" title="Rotate office right">⟳</button>
+          <span id="isoAngleLabel">SOUTH</span>
+        </div>
         <div id="canvasMoodBadge" class="canvas-mood-badge">☀️ SUNLIT DAY</div>
 
         <!-- Selected Agent HUD -->
@@ -2342,7 +2369,12 @@
         ],
         artifacts: [],
         directChats: {},
-        selectedSwatch: SWATCH_COLORS[0]
+        selectedSwatch: SWATCH_COLORS[0],
+        camera: {
+          iso: false,
+          angle: 0,
+          targetAngle: 0
+        }
       };
 
       // --------------------------------------------------------------------
@@ -2371,6 +2403,10 @@
         liveBanner: document.getElementById('liveBanner'),
         liveBannerText: document.getElementById('liveBannerText'),
         canvasMoodBadge: document.getElementById('canvasMoodBadge'),
+        btnIsoLeft: document.getElementById('btnIsoLeft'),
+        btnIsoMode: document.getElementById('btnIsoMode'),
+        btnIsoRight: document.getElementById('btnIsoRight'),
+        isoAngleLabel: document.getElementById('isoAngleLabel'),
         hudAvatar: document.getElementById('hudAvatar'),
         hudName: document.getElementById('hudName'),
         hudState: document.getElementById('hudState'),
@@ -4664,6 +4700,45 @@
         ctx.globalAlpha = 1;
       }
 
+      function applyCameraTransform() {
+        const cam = state.camera;
+        cam.angle += (cam.targetAngle - cam.angle) * 0.16;
+        if (!cam.iso) return;
+        const cx = WORLD_W / 2;
+        const cy = WORLD_H / 2;
+        // Isometric-style oblique projection: rotate cardinal view, compress depth,
+        // then scale to keep the entire office visible inside the canvas.
+        ctx.translate(cx, cy);
+        ctx.rotate(cam.angle);
+        ctx.scale(0.78, 0.62);
+        ctx.translate(-cx, -cy);
+      }
+
+      function updateCameraLabel() {
+        const names = ['SOUTH', 'EAST', 'NORTH', 'WEST'];
+        const idx = ((Math.round(state.camera.targetAngle / (Math.PI / 2)) % 4) + 4) % 4;
+        els.isoAngleLabel.textContent = state.camera.iso ? `ISO ${names[idx]}` : 'TOP';
+        els.btnIsoMode.textContent = state.camera.iso ? '◇ ISO ON' : '□ TOP VIEW';
+      }
+
+      function rotateCamera(direction) {
+        state.camera.iso = true;
+        state.camera.targetAngle += direction * Math.PI / 2;
+        updateCameraLabel();
+        sfx.blip();
+      }
+
+      function toggleCameraMode() {
+        state.camera.iso = !state.camera.iso;
+        updateCameraLabel();
+        sfx.blip();
+        showToast(state.camera.iso ? 'Isometric 3D camera enabled' : 'Top-down office camera enabled');
+      }
+
+      function drawAgentAssetPreview(ag) {
+        return ag && ag.sprite ? getAgentSprite(ag) : null;
+      }
+
       // --------------------------------------------------------------------
       // 60FPS ANIMATION LOOP & CANVAS INTERACTION
       // --------------------------------------------------------------------
@@ -4750,6 +4825,8 @@
         // Render Scene
         ctx.imageSmoothingEnabled = false;
         ctx.clearRect(0, 0, WORLD_W, WORLD_H);
+        ctx.save();
+        applyCameraTransform();
         drawOfficeScene(now);
 
         // Y-Sort chairs, desks, and agents for proper 16-bit depth overlap
@@ -4781,6 +4858,8 @@
 
         drawDataPackets(now);
         drawEmotes();
+
+        ctx.restore();
 
         // Ambient Lighting Overlay (Sunset / Midnight Lo-Fi)
         const mood = LIGHTING_MODES[state.lightingIdx];
@@ -4888,6 +4967,11 @@
           switchTab(btn.dataset.tab);
         });
       });
+
+      els.btnIsoLeft.addEventListener('click', () => rotateCamera(-1));
+      els.btnIsoRight.addEventListener('click', () => rotateCamera(1));
+      els.btnIsoMode.addEventListener('click', toggleCameraMode);
+      updateCameraLabel();
 
       els.btnLighting.addEventListener('click', () => {
         state.lightingIdx = (state.lightingIdx + 1) % LIGHTING_MODES.length;
