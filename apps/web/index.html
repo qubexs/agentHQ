@@ -5715,12 +5715,25 @@
             ctx.globalAlpha = alpha;
             ctx.imageSmoothingEnabled = false;
             ctx.translate(Math.round(p.x), Math.round(p.y));
-            // These are already isometric cut-out sprites. Keep their artwork
-            // screen-facing while the world position follows the camera. Rotate
-            // only the object's own quarter-turn, around its floor anchor.
-            // The anchor is the centre of the footprint at z=0, never the image
-            // centre, so the object stays planted on the floor when rotated.
-            ctx.rotate((rotation || 0) * Math.PI / 2);
+            // The PNG is an isometric model view, not a flat clock face. Do not
+            // rotate the whole bitmap in screen space. Its model orientation is
+            // represented by the floor footprint below; the sprite stays upright
+            // and its z=0 anchor remains planted on the floor.
+            const quarter = ((rotation || 0) % 4 + 4) % 4;
+            const theta = quarter * Math.PI / 2;
+            const fw = Math.max(14, width * 0.42), fd = Math.max(10, height * 0.20);
+            const corners = [[-fw, -fd], [fw, -fd], [fw, fd], [-fw, fd]].map(([lx, ly]) => ({
+              x: x + lx * Math.cos(theta) - ly * Math.sin(theta),
+              y: y + lx * Math.sin(theta) + ly * Math.cos(theta)
+            }));
+            const projected = corners.map((q) => isoPoint(q.x, q.y, 0.8));
+            ctx.beginPath(); projected.forEach((q, i) => i ? ctx.lineTo(q.x - p.x, q.y - p.y) : ctx.moveTo(q.x - p.x, q.y - p.y));
+            ctx.closePath(); ctx.fillStyle = state.selectedObjectId === objectId ? 'rgba(251,191,36,.18)' : 'rgba(15,23,42,.18)'; ctx.fill();
+            if (state.selectedObjectId === objectId) {
+              ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2; ctx.stroke();
+              const axis = isoPoint(x + fw * Math.cos(theta), y + fw * Math.sin(theta), 1);
+              ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(axis.x - p.x, axis.y - p.y); ctx.stroke();
+            }
             ctx.drawImage(entry.image, Math.round(-width / 2), Math.round(-height), width, height);
             if (objectId && state.selectedObjectId === objectId) {
               ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2; ctx.strokeRect(-width / 2 - 3, -height - 3, width + 6, height + 6);
