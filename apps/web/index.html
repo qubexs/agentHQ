@@ -4700,6 +4700,119 @@
         ctx.globalAlpha = 1;
       }
 
+      // --------------------------------------------------------------------
+      // TRUE ISOMETRIC SCENE RENDERER
+      // This is a 3D projection rendered onto canvas: every room/object has
+      // x/y floor coordinates plus z height and is drawn as an extruded volume.
+      // It is not a flat rotate/scale of the old 2D scene.
+      // --------------------------------------------------------------------
+      function drawIsoPolygon(points, fill, stroke = null) {
+        ctx.beginPath();
+        points.forEach((pt, i) => i ? ctx.lineTo(pt.x, pt.y) : ctx.moveTo(pt.x, pt.y));
+        ctx.closePath();
+        ctx.fillStyle = fill;
+        ctx.fill();
+        if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
+      }
+
+      function isoPoint(x, y, z = 0) {
+        const cam = state.camera;
+        const dx = x - WORLD_W / 2;
+        const dy = y - WORLD_H / 2;
+        const c = Math.cos(cam.angle);
+        const s = Math.sin(cam.angle);
+        const rx = dx * c - dy * s;
+        const ry = dx * s + dy * c;
+        return {
+          x: WORLD_W / 2 + (rx - ry) * 0.58,
+          y: 76 + (rx + ry) * 0.27 - z
+        };
+      }
+
+      function isoBox(x, y, w, d, h, top, side, front, label = '') {
+        const a = isoPoint(x, y, h), b = isoPoint(x + w, y, h);
+        const c = isoPoint(x + w, y + d, h), d2 = isoPoint(x, y + d, h);
+        const ab = isoPoint(x, y, 0), bb = isoPoint(x + w, y, 0);
+        const cb = isoPoint(x + w, y + d, 0), db = isoPoint(x, y + d, 0);
+        drawIsoPolygon([a, b, c, d2], top, '#64748b');
+        drawIsoPolygon([d2, c, cb, db], side, '#111827');
+        drawIsoPolygon([b, c, cb, bb], front, '#0f172a');
+        if (label) {
+          const lp = isoPoint(x + w / 2, y + d / 2, h + 8);
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#f8fafc';
+          ctx.fillText(label, lp.x, lp.y);
+        }
+      }
+
+      function drawIsoAgent(ag, now) {
+        const bob = ag.status === 'walking' ? Math.abs(Math.sin(ag.frame * 0.28)) * 3 : Math.sin(now * 0.004 + ag.id.length) * 1.5;
+        const base = isoPoint(ag.x, ag.y, 0);
+        const foot = isoPoint(ag.x, ag.y, 7);
+        const body = isoPoint(ag.x, ag.y, 32 + bob);
+        const head = isoPoint(ag.x, ag.y, 61 + bob);
+        ctx.fillStyle = 'rgba(0,0,0,.38)';
+        ctx.beginPath(); ctx.ellipse(base.x, base.y + 3, 19, 8, 0, 0, Math.PI * 2); ctx.fill();
+        // legs and torso are vertical extrusions, not flat sprites
+        isoBox(ag.x - 9, ag.y - 6, 8, 12, 17, '#334155', '#111827', '#1e293b');
+        isoBox(ag.x + 1, ag.y - 6, 8, 12, 17, '#334155', '#111827', '#1e293b');
+        isoBox(ag.x - 13, ag.y - 8, 26, 16, 27 + bob, ag.primaryColor, shade(ag.primaryColor, -45), shade(ag.primaryColor, -25));
+        // head as a shaded 3D block with hair cap and face highlight
+        isoBox(ag.x - 12, ag.y - 8, 24, 16, 23, ag.skinColor, shade(ag.skinColor, -28), shade(ag.skinColor, 10));
+        const hp = isoPoint(ag.x, ag.y - 8, 86 + bob);
+        ctx.fillStyle = ag.hairColor;
+        ctx.beginPath(); ctx.ellipse(hp.x, hp.y, 13, 8, 0, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(hp.x - 7, hp.y + 2, 3, 3); ctx.fillRect(hp.x + 4, hp.y + 2, 3, 3);
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center'; ctx.fillStyle = '#f8fafc';
+        ctx.fillText(ag.name, hp.x, hp.y - 14);
+      }
+
+      function drawIsoOfficeScene(now) {
+        const mood = LIGHTING_MODES[state.lightingIdx];
+        ctx.fillStyle = mood.id === 'night' ? '#070b16' : '#b9d8e8';
+        ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+        // Huge diamond floor plane with individual tile depth lines
+        const floor = [isoPoint(0, 0), isoPoint(WORLD_W, 0), isoPoint(WORLD_W, WORLD_H), isoPoint(0, WORLD_H)];
+        drawIsoPolygon(floor, '#263442', '#0f172a');
+        for (let x = 0; x <= WORLD_W; x += 100) {
+          const a = isoPoint(x, 0, 1), b = isoPoint(x, WORLD_H, 1);
+          ctx.strokeStyle = 'rgba(148,163,184,.16)'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+        for (let y = 0; y <= WORLD_H; y += 100) {
+          const a = isoPoint(0, y, 2), b = isoPoint(WORLD_W, y, 2);
+          ctx.strokeStyle = 'rgba(148,163,184,.16)';
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+        // Raised architectural room volumes
+        isoBox(20, 35, 280, 250, 72, '#29465a', '#132332', '#1e3446', 'RECEPTION');
+        isoBox(330, 35, 650, 250, 72, '#244b48', '#102b2b', '#183c3b', 'CODING BULLPEN');
+        isoBox(1010, 35, 360, 250, 72, '#4b3a62', '#241a35', '#35264b', 'WAR ROOM');
+        isoBox(700, 330, 300, 290, 84, '#342b55', '#19152f', '#252040', 'SERVER ROOM');
+        isoBox(1010, 330, 360, 290, 72, '#57402e', '#2a1d16', '#3b2b20', 'LOUNGE');
+        // Furniture volumes
+        DESKS.forEach((desk) => {
+          isoBox(desk.x - 32, desk.y - 22, 64, 34, 24, '#9a613d', '#4a2d20', '#6b3f28');
+          isoBox(desk.x - 22, desk.y - 14, 44, 5, 26, '#172b42', '#07111e', desk.monitorColor);
+          isoBox(desk.x - 8, desk.y + 18, 16, 14, 20, '#334155', '#111827', '#1e293b');
+        });
+        [740, 850, 960].forEach((x, i) => {
+          isoBox(x, 370, 76, 34, 130, '#202b3d', '#0b1220', '#111827', `NODE-${i + 1}`);
+          for (let l = 0; l < 7; l++) {
+            const p = isoPoint(x + 12 + (l % 3) * 18, 365, 30 + l * 13);
+            ctx.fillStyle = (Math.floor(now / 300) + l + i) % 3 ? '#22c55e' : '#38bdf8';
+            ctx.fillRect(p.x, p.y, 4, 4);
+          }
+        });
+        isoBox(1080, 430, 260, 100, 18, '#6b4937', '#2d211a', '#4c3327', 'CONFERENCE');
+        isoBox(1120, 530, 200, 90, 12, '#7f1d1d', '#3f1010', '#5b1515', 'BREAKROOM');
+        // Depth-sorted agents
+        [...state.agents].sort((a, b) => a.x + a.y - (b.x + b.y)).forEach((ag) => drawIsoAgent(ag, now));
+      }
+
       function applyCameraTransform() {
         const cam = state.camera;
         cam.angle += (cam.targetAngle - cam.angle) * 0.16;
@@ -4826,8 +4939,11 @@
         ctx.imageSmoothingEnabled = false;
         ctx.clearRect(0, 0, WORLD_W, WORLD_H);
         ctx.save();
-        applyCameraTransform();
-        drawOfficeScene(now);
+        if (state.camera.iso) {
+          drawIsoOfficeScene(now);
+        } else {
+          applyCameraTransform();
+          drawOfficeScene(now);
 
         // Y-Sort chairs, desks, and agents for proper 16-bit depth overlap
         const items = [];
@@ -4858,6 +4974,7 @@
 
         drawDataPackets(now);
         drawEmotes();
+        }
 
         ctx.restore();
 
