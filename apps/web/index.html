@@ -401,6 +401,20 @@
       pointer-events: none;
     }
 
+    .object-tools {
+      position:absolute; right:10px; bottom:10px; width:238px; z-index:5;
+      padding:9px; border:1px solid var(--border-strong); border-radius:10px;
+      background:rgba(9,13,22,.94); backdrop-filter:blur(8px); color:#cbd5e1;
+      font:10px var(--font-mono); box-shadow:0 8px 22px rgba(0,0,0,.35);
+    }
+    .object-tools-title { color:#fbbf24; font-weight:800; margin-bottom:7px; }
+    .object-tools-title span { color:#38bdf8; float:right; font-size:9px; }
+    .object-inventory { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; max-height:92px; overflow:auto; }
+    .object-inventory button { min-height:28px; padding:3px; color:#cbd5e1; background:#162033; border:1px solid #364766; border-radius:5px; cursor:pointer; font:8px var(--font-mono); }
+    .object-inventory button:hover { border-color:#fbbf24; color:#fbbf24; }
+    .object-inventory button.active { border-color:#38bdf8; box-shadow:0 0 0 1px #38bdf8 inset; }
+    .object-tools-help { color:#64748b; line-height:1.35; margin:7px 0; }
+
     /* Selected Agent Overlay HUD on Canvas */
     .selected-hud {
       position: absolute;
@@ -1428,6 +1442,12 @@
           <span id="isoAngleLabel">SOUTH</span>
         </div>
         <div id="canvasMoodBadge" class="canvas-mood-badge">☀️ SUNLIT DAY</div>
+        <div id="objectTools" class="object-tools" aria-label="Office object editor">
+          <div class="object-tools-title">▦ FLOOR OBJECTS <span id="objectFloorLabel">FLOOR 01</span></div>
+          <div id="objectInventory" class="object-inventory"></div>
+          <div class="object-tools-help">Double-click an object to select · drag to move · R to rotate · Store to inventory</div>
+          <button id="btnStoreObject" class="btn btn-sm btn-rose-soft" disabled>▣ Store Selected</button>
+        </div>
 
         <!-- Selected Agent HUD -->
         <div id="selectedHud" class="selected-hud">
@@ -1994,6 +2014,43 @@
         { id: 5, x: 1000, y: 486, seatX: 1000, seatY: 530, monitorColor: '#fb923c' }
       ];
 
+      const OBJECT_CATALOG = [
+        { type:'desk', label:'Desk', file:'Tiles/Furniture/office_furniture_desk_straight_01.png', width:96, height:62 },
+        { type:'chair', label:'Task Chair', file:'Tiles/Furniture/office_furniture_chair_task_01.png', width:48, height:72 },
+        { type:'plant', label:'Plant', file:'Tiles/Decor/office_decor_plant_broadleaf_01.png', width:54, height:82 },
+        { type:'monitor', label:'Monitor', file:'Tiles/Electronics/office_electronics_monitor_single_off_01.png', width:45, height:42 },
+        { type:'printer', label:'Printer', file:'Tiles/Electronics/office_electronics_printer_small_01.png', width:48, height:38 },
+        { type:'mug', label:'Mug', file:'Tiles/Props/office_props_mug_01.png', width:20, height:22 }
+      ];
+      const DEFAULT_OBJECT_LAYOUTS = {
+        floor0: [
+          {id:'f0-reception', type:'desk', x:150, y:420, rotation:0, width:118, height:78},
+          {id:'f0-plant', type:'plant', x:250, y:100, rotation:0, width:54, height:82}
+        ],
+        floor1: [
+          {id:'f1-desk', type:'desk', x:420, y:340, rotation:0, width:96, height:62},
+          {id:'f1-chair', type:'chair', x:420, y:395, rotation:0, width:48, height:72},
+          {id:'f1-monitor', type:'monitor', x:420, y:324, rotation:0, width:45, height:42},
+          {id:'f1-plant', type:'plant', x:250, y:100, rotation:0, width:54, height:82},
+          {id:'f1-printer', type:'printer', x:620, y:360, rotation:0, width:48, height:38},
+          {id:'f1-mug', type:'mug', x:470, y:355, rotation:0, width:20, height:22}
+        ],
+        floor2: [
+          {id:'f2-desk', type:'desk', x:420, y:340, rotation:0, width:96, height:62},
+          {id:'f2-monitor', type:'monitor', x:420, y:324, rotation:0, width:45, height:42},
+          {id:'f2-plant', type:'plant', x:848, y:520, rotation:0, width:54, height:82}
+        ]
+      };
+      const objectLayouts = {};
+      function getObjectLayout(floorId) {
+        if (!objectLayouts[floorId]) {
+          try { objectLayouts[floorId] = JSON.parse(localStorage.getItem(`agenthq_floor_objects_${floorId}`) || 'null'); } catch (e) {}
+          if (!Array.isArray(objectLayouts[floorId])) objectLayouts[floorId] = JSON.parse(JSON.stringify(DEFAULT_OBJECT_LAYOUTS[floorId] || DEFAULT_OBJECT_LAYOUTS.floor1));
+        }
+        return objectLayouts[floorId];
+      }
+      function saveObjectLayout(floorId = currentFloorId) { localStorage.setItem(`agenthq_floor_objects_${floorId}`, JSON.stringify(getObjectLayout(floorId))); }
+
       const SWATCH_COLORS = ['#38bdf8', '#f59e0b', '#10b981', '#ec4899', '#a855f7', '#f43f5e'];
 
       const STAGE_SLOTS = [
@@ -2374,7 +2431,10 @@
           iso: true,
           angle: 0,
           targetAngle: 0
-        }
+        },
+        selectedObjectId: null,
+        placementObjectType: null,
+        objectDrag: null
       };
 
       // --------------------------------------------------------------------
@@ -2497,7 +2557,10 @@
         hirePreviewOutfitDot: document.getElementById('hirePreviewOutfitDot'),
         hirePreviewMonitorDot: document.getElementById('hirePreviewMonitorDot'),
         toast: document.getElementById('toast'),
-        floorQuickSelect: document.getElementById('floorQuickSelect')
+        floorQuickSelect: document.getElementById('floorQuickSelect'),
+        objectInventory: document.getElementById('objectInventory'),
+        objectFloorLabel: document.getElementById('objectFloorLabel'),
+        btnStoreObject: document.getElementById('btnStoreObject')
       };
 
       // --------------------------------------------------------------------
@@ -5631,10 +5694,10 @@
         for (let y = 96; y < 430; y += 56) { glassSeg(300, y, 300, Math.min(430, y + 56)); glassSeg(1090, y, 1090, Math.min(430, y + 56)); }
         for (let y = 520; y < 700; y += 60) { glassSeg(300, y, 300, Math.min(700, y + 60)); glassSeg(1090, y, 1090, Math.min(700, y + 60)); }
 
-        // Supplied office PNG props: draw them as anchored foreground sprites on
-        // top of the geometry. They load independently and fall back silently to
-        // the detailed procedural furniture above until the image is ready.
-        const assetProp = (file, x, y, width, height, bias = 0, alpha = 1) => {
+        // User-editable floor layout. Objects are anchored at their floor base,
+        // sorted with the rest of the scene, and can be moved/rotated/stored.
+        const layout = getObjectLayout(currentFloorId);
+        const assetProp = (file, x, y, width, height, bias = 0, alpha = 1, rotation = 0, objectId = null) => {
           const key = `asset/objects/${file}`;
           let entry = PA.objectAssets?.get(key);
           if (!entry) {
@@ -5651,19 +5714,21 @@
             ctx.save();
             ctx.globalAlpha = alpha;
             ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(entry.image, Math.round(p.x - width / 2), Math.round(p.y - height), width, height);
+            ctx.translate(Math.round(p.x), Math.round(p.y));
+            ctx.rotate((rotation || 0) * Math.PI / 2);
+            ctx.drawImage(entry.image, Math.round(-width / 2), Math.round(-height), width, height);
+            if (objectId && state.selectedObjectId === objectId) {
+              ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2; ctx.strokeRect(-width / 2 - 3, -height - 3, width + 6, height + 6);
+            }
             ctx.restore();
           }, null, bias);
         };
-        // High-visibility objects from the supplied Tile pack.
-        assetProp('Tiles/Furniture/office_furniture_counter_reception_curved_01.png', 150, 420, 118, 78, 24);
-        assetProp('Tiles/Furniture/office_furniture_desk_straight_01.png', 420, 340, 96, 62, 20);
-        assetProp('Tiles/Furniture/office_furniture_chair_task_01.png', 420, 395, 48, 72, 26);
-        assetProp('Tiles/Electronics/office_electronics_monitor_single_off_01.png', 420, 324, 45, 42, 32);
-        assetProp('Tiles/Decor/office_decor_plant_broadleaf_01.png', 250, 100, 54, 82, 10);
-        assetProp('Tiles/Decor/office_decor_refrigerator_compact_01.png', 80, 95, 58, 90, 20);
-        assetProp('Tiles/Electronics/office_electronics_printer_small_01.png', 620, 360, 48, 38, 22);
-        assetProp('Tiles/Props/office_props_mug_01.png', 470, 355, 20, 22, 35);
+        // High-visibility objects from the supplied Tile pack. The layout is
+        // floor-specific and replaces the old fixed asset placements.
+        layout.forEach((obj) => {
+          const meta = OBJECT_CATALOG.find((item) => item.type === obj.type);
+          if (meta) assetProp(meta.file, obj.x, obj.y, obj.width || meta.width, obj.height || meta.height, 24, 1, obj.rotation || 0, obj.id);
+        });
         void mood;
         return items;
       };
@@ -6041,11 +6106,100 @@
         requestAnimationFrame(tick);
       }
 
+      // --------------------------------------------------------------------
+      // Floor object editor: double-click selects, drag moves, R rotates,
+      // Store removes the object from this floor and adds it to inventory.
+      // --------------------------------------------------------------------
+      function renderObjectInventory() {
+        if (!els.objectInventory) return;
+        if (els.objectFloorLabel) els.objectFloorLabel.textContent = `FLOOR ${String(currentFloorId || 'floor1').replace('floor', '')}`;
+        const inventory = JSON.parse(localStorage.getItem('agenthq_object_inventory') || '[]');
+        els.objectInventory.innerHTML = OBJECT_CATALOG.map((obj) => `<button type="button" data-place-object="${obj.type}" title="Add ${obj.label}">＋ ${obj.label}<br><small>${inventory.filter((x) => x.type === obj.type).length} stored</small></button>`).join('');
+        els.objectInventory.querySelectorAll('[data-place-object]').forEach((button) => button.addEventListener('click', () => {
+          state.placementObjectType = button.dataset.placeObject;
+          showToast(`Selected ${OBJECT_CATALOG.find((x) => x.type === state.placementObjectType)?.label || 'object'} — click the floor to place it.`);
+          canvas.style.cursor = 'crosshair';
+        }));
+        const selected = getObjectLayout(currentFloorId).find((obj) => obj.id === state.selectedObjectId);
+        if (els.btnStoreObject) els.btnStoreObject.disabled = !selected;
+      }
+      function canvasWorldPoint(e) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = (e.clientX - rect.left) * (WORLD_W / rect.width);
+        const sy = (e.clientY - rect.top) * (WORLD_H / rect.height);
+        return state.camera.iso ? PA.unproject(sx, sy) : { x: sx, y: sy };
+      }
+      function hitFloorObject(e) {
+        const p = canvasWorldPoint(e);
+        return getObjectLayout(currentFloorId).slice().reverse().find((obj) => {
+          const w = (obj.width || 60) * 0.72, h = (obj.height || 60) * 0.72;
+          return Math.abs(p.x - obj.x) <= w && Math.abs(p.y - obj.y) <= h;
+        });
+      }
+      function selectFloorObject(obj) {
+        state.selectedObjectId = obj?.id || null;
+        updateTelemetryAndHud();
+        renderObjectInventory();
+      }
+      canvas.addEventListener('dblclick', (e) => {
+        const obj = hitFloorObject(e);
+        if (!obj) return;
+        selectFloorObject(obj);
+        showToast(`${OBJECT_CATALOG.find((x) => x.type === obj.type)?.label || 'Object'} selected — drag to move, press R to rotate.`);
+        e.preventDefault();
+      });
+      canvas.addEventListener('pointerdown', (e) => {
+        if (state.placementObjectType) return;
+        const obj = hitFloorObject(e);
+        if (!obj) return;
+        const p = canvasWorldPoint(e);
+        state.objectDrag = { obj, dx: obj.x - p.x, dy: obj.y - p.y };
+        selectFloorObject(obj);
+        canvas.setPointerCapture?.(e.pointerId);
+      });
+      canvas.addEventListener('pointermove', (e) => {
+        if (!state.objectDrag) return;
+        const p = canvasWorldPoint(e), obj = state.objectDrag.obj;
+        obj.x = Math.max(18, Math.min(WORLD_W - 18, Math.round(p.x + state.objectDrag.dx)));
+        obj.y = Math.max(100, Math.min(WORLD_H - 20, Math.round(p.y + state.objectDrag.dy)));
+      });
+      canvas.addEventListener('pointerup', () => {
+        if (!state.objectDrag) return;
+        saveObjectLayout(); state.objectDrag = null; renderObjectInventory();
+      });
+      window.addEventListener('keydown', (e) => {
+        if (e.key.toLowerCase() !== 'r' || !state.selectedObjectId) return;
+        const obj = getObjectLayout(currentFloorId).find((item) => item.id === state.selectedObjectId);
+        if (!obj) return;
+        obj.rotation = ((obj.rotation || 0) + 1) % 4;
+        saveObjectLayout(); showToast('Object rotated 90°');
+      });
+      els.btnStoreObject?.addEventListener('click', () => {
+        const layout = getObjectLayout(currentFloorId), index = layout.findIndex((obj) => obj.id === state.selectedObjectId);
+        if (index < 0) return;
+        const [obj] = layout.splice(index, 1), inventory = JSON.parse(localStorage.getItem('agenthq_object_inventory') || '[]');
+        inventory.push({ type: obj.type, width: obj.width, height: obj.height });
+        localStorage.setItem('agenthq_object_inventory', JSON.stringify(inventory));
+        state.selectedObjectId = null; saveObjectLayout(); renderObjectInventory(); showToast('Object stored in inventory.');
+      });
+      renderObjectInventory();
+
       // Canvas Click Handler
       canvas.addEventListener('click', (e) => {
         const rect = canvas.getBoundingClientRect();
         let cx = (e.clientX - rect.left) * (WORLD_W / rect.width);
         let cy = (e.clientY - rect.top) * (WORLD_H / rect.height);
+
+        if (state.placementObjectType) {
+          const point = state.camera.iso ? PA.unproject(cx, cy) : { x: cx, y: cy };
+          const meta = OBJECT_CATALOG.find((item) => item.type === state.placementObjectType);
+          if (meta) {
+            getObjectLayout(currentFloorId).push({ id: `${currentFloorId}-${meta.type}-${Date.now()}`, type: meta.type, x: Math.round(point.x), y: Math.round(point.y), rotation: 0, width: meta.width, height: meta.height });
+            saveObjectLayout(); state.placementObjectType = null; canvas.style.cursor = 'pointer'; renderObjectInventory();
+            showToast(`${meta.label} placed on this floor.`);
+          }
+          return;
+        }
 
         // 1. Clicked on an Agent?
         let hitAgent;
@@ -6585,6 +6739,9 @@
         saveFloorRoster(currentFloorId, state.agents);
 
         currentFloorId = floorId;
+        state.selectedObjectId = null;
+        state.placementObjectType = null;
+        renderObjectInventory();
         const floorObj = floorLevels.find(f => f.id === floorId) || { id: floorId, num: '01', name: 'Swarm HQ' };
         
         // Load target floor's isolated staff roster (max 6)
