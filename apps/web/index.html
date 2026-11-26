@@ -1570,6 +1570,12 @@
         </div>
 
         <div class="form-group">
+          <label class="form-label">Sprite Asset (file inside asset/agents/)</label>
+          <input id="hireSprite" class="form-input" type="text" placeholder="e.g. claude-1.png or claude-1/sprite.png" />
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Drop your own PNG/WebP figurine into <code>apps/web/asset/agents/</code>. Leave empty for procedural chibi.</div>
+        </div>
+
+        <div class="form-group">
           <label class="form-label">Specialty System Prompt</label>
           <input id="hirePrompt" class="form-input" type="text" value="You are a meticulous specialist focused on production reliability, crisp engineering, and high user delight." />
         </div>
@@ -1929,34 +1935,36 @@
       ];
 
       const WAYPOINTS = {
-        door: { x: 700, y: 660 },
+        door: { x: 700, y: 680 },
         coffeeSpots: [
-          { x: 1200, y: 220 },
-          { x: 1250, y: 220 },
-          { x: 1225, y: 260 },
-          { x: 1280, y: 245 },
-          { x: 1175, y: 250 },
-          { x: 1260, y: 275 }
+          { x: 110, y: 200 },
+          { x: 150, y: 200 },
+          { x: 130, y: 230 },
+          { x: 600, y: 650 },
+          { x: 640, y: 650 },
+          { x: 560, y: 660 }
         ],
-        whiteboard: { x: 950, y: 148 },
+        whiteboard: { x: 450, y: 150 },
         standupSpots: [
-          { x: 880, y: 220 },
-          { x: 930, y: 230 },
-          { x: 980, y: 230 },
-          { x: 1030, y: 220 },
-          { x: 905, y: 265 },
-          { x: 1005, y: 265 }
+          { x: 380, y: 190 },
+          { x: 430, y: 200 },
+          { x: 480, y: 200 },
+          { x: 530, y: 190 },
+          { x: 405, y: 235 },
+          { x: 505, y: 235 }
         ],
-        loungeArcade: { x: 200, y: 580 }
+        serverRoom: { x: 895, y: 445 },
+        warRoom: { x: 1240, y: 470 },
+        loungeArcade: { x: 500, y: 640 }
       };
 
       const DESKS = [
-        { id: 0, x: 220, y: 360, seatX: 220, seatY: 400, monitorColor: '#f59e0b' },
-        { id: 1, x: 440, y: 360, seatX: 440, seatY: 400, monitorColor: '#10b981' },
-        { id: 2, x: 660, y: 360, seatX: 660, seatY: 400, monitorColor: '#38bdf8' },
-        { id: 3, x: 880, y: 360, seatX: 880, seatY: 400, monitorColor: '#ec4899' },
-        { id: 4, x: 330, y: 530, seatX: 330, seatY: 570, monitorColor: '#a855f7' },
-        { id: 5, x: 770, y: 530, seatX: 770, seatY: 570, monitorColor: '#fb923c' }
+        { id: 0, x: 370, y: 340, seatX: 370, seatY: 384, monitorColor: '#f59e0b' },
+        { id: 1, x: 540, y: 340, seatX: 540, seatY: 384, monitorColor: '#10b981' },
+        { id: 2, x: 370, y: 486, seatX: 370, seatY: 530, monitorColor: '#38bdf8' },
+        { id: 3, x: 540, y: 486, seatX: 540, seatY: 530, monitorColor: '#ec4899' },
+        { id: 4, x: 860, y: 486, seatX: 860, seatY: 530, monitorColor: '#a855f7' },
+        { id: 5, x: 1000, y: 486, seatX: 1000, seatY: 530, monitorColor: '#fb923c' }
       ];
 
       const SWATCH_COLORS = ['#38bdf8', '#f59e0b', '#10b981', '#ec4899', '#a855f7', '#f43f5e'];
@@ -2395,6 +2403,7 @@
         hireForm: document.getElementById('hireForm'),
         hireName: document.getElementById('hireName'),
         hireRole: document.getElementById('hireRole'),
+        hireSprite: document.getElementById('hireSprite'),
         hirePrompt: document.getElementById('hirePrompt'),
         hireSpecialty: document.getElementById('hireSpecialty'),
         hireAccessory: document.getElementById('hireAccessory'),
@@ -3968,6 +3977,233 @@
         ctx.fillText('WELCOME', 450, 576);
         // Floor sheen
         pxRect(410, 550, 26, 2, 'rgba(255,255,255,0.10)');
+
+        drawRoomPartitions(now);
+        drawReceptionWing(now);
+        drawServerRoom(now);
+        drawConferenceWing(now);
+        drawLoungeWing(now);
+      }
+
+      // --------------------------------------------------------------------
+      // MULTI-ROOM ARCHITECTURE (1400 x 720 world)
+      // --------------------------------------------------------------------
+      function glassPartition(x, yTop, yBot, label) {
+        // Metal frame + tinted glass with reflection streaks
+        pxRect(x - 5, yTop, 10, yBot - yTop, 'rgba(0,0,0,0.35)');
+        pxRect(x - 4, yTop, 8, yBot - yTop, '#334155');
+        pxRect(x - 3, yTop + 2, 6, yBot - yTop - 4, 'rgba(148,197,253,0.20)');
+        pxRect(x - 3, yTop + 2, 2, yBot - yTop - 4, 'rgba(226,240,255,0.30)');
+        for (let gy = yTop + 18; gy < yBot - 10; gy += 46) {
+          pxRect(x - 4, gy, 8, 3, '#475569');
+          pxRect(x - 4, gy, 8, 1, '#94a3b8');
+        }
+        pxRect(x - 6, yTop - 4, 12, 6, '#1e293b');
+        pxRect(x - 6, yBot - 2, 12, 6, '#1e293b');
+        if (label) {
+          ctx.font = 'bold 8px "JetBrains Mono", monospace';
+          const lw = ctx.measureText(label).width + 12;
+          pxRect(x - lw / 2, yTop - 22, lw, 14, 'rgba(9,13,22,0.92)');
+          ctx.fillStyle = '#7dd3fc';
+          ctx.textAlign = 'center';
+          ctx.fillText(label, x, yTop - 12);
+        }
+      }
+
+      function drawRoomPartitions(now) {
+        // Vertical glass partitions splitting the floor into wings (with door gaps)
+        glassPartition(300, 96, 430, 'RECEPTION');
+        glassPartition(300, 520, 700, '');
+        glassPartition(1090, 96, 430, 'WAR ROOM');
+        glassPartition(1090, 520, 700, '');
+
+        // Horizontal corridor wall separating the server room from the bullpen
+        pxRect(700, 292, 390, 8, 'rgba(0,0,0,0.35)');
+        pxRect(700, 290, 390, 6, '#1e293b');
+        pxRect(700, 290, 390, 2, '#475569');
+        for (let sx = 706; sx < 1084; sx += 26) {
+          pxRect(sx, 292, 3, 3, '#64748b');
+        }
+
+        // Room name plates on the back wall
+        [
+          { x: 150, t: 'RECEPTION & SECURITY', c: '#38bdf8' },
+          { x: 620, t: 'CODING BULLPEN', c: '#34d399' },
+          { x: 895, t: 'R&D SERVER ROOM', c: '#a78bfa' },
+          { x: 1240, t: 'EXECUTIVE WAR ROOM', c: '#fbbf24' }
+        ].forEach((r) => {
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          const w = ctx.measureText(r.t).width + 16;
+          pxRect(r.x - w / 2, 76, w, 14, 'rgba(9,13,22,0.90)');
+          pxRect(r.x - w / 2, 76, w, 1, r.c);
+          ctx.fillStyle = r.c;
+          ctx.textAlign = 'center';
+          ctx.fillText(r.t, r.x, 86);
+        });
+
+        // Ceiling light strips per room
+        [150, 620, 895, 1240].forEach((lx, i) => {
+          const glow = 0.16 + Math.sin(now * 0.002 + i) * 0.03 + mood0().lampGlow * 0.2;
+          pxRect(lx - 44, 66, 88, 5, '#0f172a');
+          pxRect(lx - 42, 67, 84, 3, `rgba(254,243,199,${glow.toFixed(3)})`);
+        });
+      }
+
+      function mood0() {
+        return LIGHTING_MODES[state.lightingIdx];
+      }
+
+      function drawReceptionWing(now) {
+        // Reception / security desk with badge scanner and turnstile
+        pxRect(60, 470, 190, 12, 'rgba(0,0,0,0.35)');
+        pxRect(62, 420, 186, 54, '#0b1220');
+        pxRect(64, 422, 182, 50, '#7c2d12');
+        pxRect(64, 422, 182, 8, '#b45309');
+        pxRect(64, 422, 182, 2, '#f59e0b');
+        pxRect(70, 434, 80, 32, '#5b2410');
+        pxRect(160, 434, 80, 32, '#5b2410');
+        // Monitor on reception desk
+        pxRect(96, 398, 40, 24, '#0f172a');
+        pxRect(98, 400, 36, 19, '#0ea5e9');
+        pxRect(100, 402, 32, 2, 'rgba(255,255,255,0.45)');
+        pxRect(112, 422, 8, 4, '#334155');
+        // Badge scanner with blinking LED
+        pxRect(196, 404, 22, 18, '#0f172a');
+        pxRect(198, 406, 18, 14, '#1e293b');
+        pxRect(200, 408, 14, 3, Math.floor(now / 500) % 2 ? '#22c55e' : '#14532d');
+        pxRect(204, 414, 6, 2, '#94a3b8');
+        // Security turnstile
+        pxRect(40, 486, 8, 46, '#334155');
+        pxRect(42, 486, 4, 46, '#64748b');
+        pxRect(24, 500, 18, 5, '#94a3b8');
+        pxRect(46, 500, 18, 5, '#94a3b8');
+        // Visitor chairs
+        [96, 150, 204].forEach((cx) => {
+          pxRect(cx - 14, 540, 28, 8, '#0f172a');
+          pxRect(cx - 13, 522, 26, 20, '#1e3a8a');
+          pxRect(cx - 13, 522, 26, 3, '#3b82f6');
+          pxRect(cx - 11, 548, 4, 10, '#0f172a');
+          pxRect(cx + 7, 548, 4, 10, '#0f172a');
+        });
+      }
+
+      function drawServerRoom(now) {
+        // Raised anti-static floor tiles
+        for (let ty = 300; ty < 430; ty += 22) {
+          for (let tx = 706; tx < 1084; tx += 22) {
+            pxRect(tx, ty, 21, 21, (tx + ty) % 44 === 0 ? '#111827' : '#0d1424');
+            pxRect(tx, ty, 21, 1, 'rgba(148,163,184,0.08)');
+          }
+        }
+        // Three server racks with blinking LEDs
+        [740, 860, 980].forEach((rx, ri) => {
+          pxRect(rx - 4, 306, 108, 122, 'rgba(0,0,0,0.45)');
+          pxRect(rx, 302, 100, 122, '#0b1220');
+          pxRect(rx + 2, 304, 96, 118, '#1e293b');
+          pxRect(rx + 2, 304, 96, 3, '#475569');
+          for (let u = 0; u < 8; u++) {
+            const uy = 310 + u * 14;
+            pxRect(rx + 6, uy, 88, 11, '#0f172a');
+            pxRect(rx + 6, uy, 88, 1, '#334155');
+            for (let l = 0; l < 6; l++) {
+              const on = (Math.floor(now / (220 + l * 60)) + u * 3 + ri * 5 + l) % 4 < 2;
+              pxRect(rx + 12 + l * 9, uy + 4, 4, 3, on ? (l % 2 ? '#22c55e' : '#38bdf8') : '#1e293b');
+            }
+            pxRect(rx + 74, uy + 3, 16, 5, '#111827');
+          }
+          // Rack top label
+          pxRect(rx + 30, 296, 40, 8, '#4c1d95');
+          ctx.font = 'bold 6px "JetBrains Mono", monospace';
+          ctx.fillStyle = '#ddd6fe';
+          ctx.textAlign = 'center';
+          ctx.fillText(`NODE-${ri + 1}`, rx + 50, 302);
+        });
+        // Cable trays overhead
+        pxRect(706, 282, 378, 4, '#312e81');
+        for (let cx2 = 712; cx2 < 1080; cx2 += 18) {
+          pxRect(cx2, 284, 3, 2, cx2 % 36 === 0 ? '#f59e0b' : '#6366f1');
+        }
+      }
+
+      function drawConferenceWing(now) {
+        // Glass conference table with inset power hub and leather chairs
+        pxRect(1140, 430, 220, 16, 'rgba(0,0,0,0.35)');
+        pxRect(1146, 380, 208, 56, '#0b1220');
+        pxRect(1148, 382, 204, 52, 'rgba(191,219,254,0.35)');
+        pxRect(1148, 382, 204, 3, 'rgba(255,255,255,0.55)');
+        pxRect(1148, 430, 204, 4, '#1e293b');
+        pxRect(1236, 400, 28, 14, '#0f172a');
+        pxRect(1240, 403, 20, 8, '#334155');
+        // Wall display showing live swarm telemetry
+        pxRect(1150, 120, 200, 104, '#0b1220');
+        pxRect(1154, 124, 192, 96, '#020617');
+        for (let gx = 0; gx < 192; gx += 12) {
+          pxRect(1154 + gx, 124, 1, 96, 'rgba(56,189,248,0.08)');
+        }
+        for (let gy = 0; gy < 96; gy += 12) {
+          pxRect(1154, 124 + gy, 192, 1, 'rgba(56,189,248,0.08)');
+        }
+        const bars = 6;
+        for (let b = 0; b < bars; b++) {
+          const bh = 14 + ((Math.sin(now * 0.003 + b) + 1) / 2) * 52;
+          pxRect(1166 + b * 30, 212 - bh, 18, bh, b % 2 ? '#34d399' : '#38bdf8');
+          pxRect(1166 + b * 30, 212 - bh, 18, 2, 'rgba(255,255,255,0.5)');
+        }
+        pxRect(1150, 220, 200, 4, '#1e293b');
+        // Executive chairs around the table
+        [
+          [1170, 350], [1250, 350], [1330, 350],
+          [1170, 452], [1250, 452], [1330, 452]
+        ].forEach(([cx, cy]) => {
+          pxRect(cx - 16, cy, 32, 10, '#0f172a');
+          pxRect(cx - 15, cy - 20, 30, 22, '#111827');
+          pxRect(cx - 15, cy - 20, 30, 3, '#374151');
+          pxRect(cx - 13, cy - 16, 26, 4, '#1f2937');
+          pxRect(cx - 12, cy + 10, 4, 8, '#0f172a');
+          pxRect(cx + 8, cy + 10, 4, 8, '#0f172a');
+        });
+        // Hanging pendant lamps
+        [1200, 1300].forEach((lx) => {
+          pxRect(lx - 1, 96, 2, 18, '#334155');
+          pxRect(lx - 12, 114, 24, 8, '#0f172a');
+          pxRect(lx - 10, 116, 20, 5, 'rgba(254,243,199,0.75)');
+        });
+      }
+
+      function drawLoungeWing(now) {
+        // Breakroom / lounge sofas, arcade cabinet and coffee table
+        pxRect(80, 620, 190, 14, 'rgba(0,0,0,0.32)');
+        pxRect(84, 574, 182, 50, '#0f172a');
+        pxRect(86, 576, 178, 46, '#7f1d1d');
+        pxRect(86, 576, 178, 6, '#b91c1c');
+        pxRect(94, 586, 76, 30, '#991b1b');
+        pxRect(178, 586, 76, 30, '#991b1b');
+        pxRect(94, 586, 76, 2, 'rgba(255,255,255,0.18)');
+        pxRect(178, 586, 76, 2, 'rgba(255,255,255,0.18)');
+        // Coffee table with magazines
+        pxRect(320, 600, 90, 12, '#0b1220');
+        pxRect(322, 594, 86, 10, '#92400e');
+        pxRect(322, 594, 86, 2, '#d97706');
+        pxRect(336, 588, 22, 6, '#38bdf8');
+        pxRect(366, 589, 18, 5, '#f472b6');
+        // Arcade cabinet with animated screen
+        pxRect(470, 560, 62, 96, '#0b1220');
+        pxRect(472, 562, 58, 92, '#4c1d95');
+        pxRect(472, 562, 58, 4, '#7c3aed');
+        pxRect(480, 574, 42, 34, '#020617');
+        const spr = Math.floor(now / 260) % 4;
+        pxRect(492 + spr * 4, 592 - spr * 3, 8, 8, '#fbbf24');
+        pxRect(486, 600, 6, 6, '#ef4444');
+        pxRect(504, 612, 20, 6, '#1e293b');
+        pxRect(508, 606, 5, 8, '#f59e0b');
+        pxRect(496, 640, 30, 8, '#312e81');
+        // Water cooler
+        pxRect(580, 574, 30, 60, '#0f172a');
+        pxRect(582, 576, 26, 56, '#cbd5e1');
+        pxRect(586, 560, 18, 18, '#38bdf8');
+        pxRect(586, 560, 18, 4, '#7dd3fc');
+        pxRect(590, 596, 3, 6, '#ef4444');
+        pxRect(598, 596, 3, 6, '#3b82f6');
       }
 
       function drawDeskAndMonitors(desk, isOccupied, isWorking, now) {
@@ -4111,6 +4347,33 @@
         return `rgb(${r},${g},${b})`;
       }
 
+      // --------------------------------------------------------------------
+      // PER-AGENT SPRITE ASSET SYSTEM
+      // Every agent can own its own image file inside apps/web/asset/agents/
+      // e.g. asset/agents/claude-1.png  or  asset/agents/claude-1/sprite.png
+      // Falls back to the procedural chibi renderer when no asset is present.
+      // --------------------------------------------------------------------
+      const AGENT_ASSET_DIR = 'asset/agents/';
+      const AGENT_SPRITE_SCALE = 1.5;
+      const spriteCache = new Map();
+
+      function agentAssetPath(ag) {
+        return ag && ag.sprite ? String(ag.sprite) : '';
+      }
+
+      function getAgentSprite(ag) {
+        const rel = agentAssetPath(ag);
+        if (!rel) return null;
+        const cached = spriteCache.get(rel);
+        if (cached) return cached.loaded ? cached.img : null;
+        const entry = { img: new Image(), loaded: false, failed: false };
+        entry.img.onload = () => { entry.loaded = true; };
+        entry.img.onerror = () => { entry.failed = true; };
+        entry.img.src = AGENT_ASSET_DIR + rel;
+        spriteCache.set(rel, entry);
+        return null;
+      }
+
       function drawAgent(ag, isSelected, now) {
         const px = Math.round(ag.x);
         const groundY = Math.round(ag.y);
@@ -4148,6 +4411,29 @@
         // Two-layer floor shadow
         pxRect(px - 13, groundY + 12, 26, 7, 'rgba(0,0,0,0.40)');
         pxRect(px - 9, groundY + 11, 18, 4, 'rgba(0,0,0,0.28)');
+
+        const spriteImg = getAgentSprite(ag);
+
+        if (spriteImg) {
+          // Custom per-agent asset (PNG/WebP) drawn as a chibi figurine
+          const targetH = 104;
+          const ratio = spriteImg.width / (spriteImg.height || 1);
+          const targetW = Math.round(targetH * ratio);
+          const bob = isWalking ? Math.abs(Math.sin(phase)) * -4 : bobY * 0.6;
+          ctx.imageSmoothingEnabled = true;
+          ctx.drawImage(
+            spriteImg,
+            Math.round(px - targetW / 2),
+            Math.round(groundY + 16 - targetH + bob),
+            targetW,
+            targetH
+          );
+          ctx.imageSmoothingEnabled = false;
+        } else {
+        ctx.save();
+        ctx.translate(px, groundY + 16);
+        ctx.scale(AGENT_SPRITE_SCALE, AGENT_SPRITE_SCALE);
+        ctx.translate(-px, -(groundY + 16));
 
         // === LEGS & SHOES (4-frame stride, 3-tone) ===
         const lLeg = isWalking ? Math.sin(phase) * 4 : 0;
@@ -4288,6 +4574,20 @@
           pxRect(px - 2, headY - 13, 4, 6, '#fbbf24');
           pxRect(px + 7, headY - 11, 4, 4, '#fbbf24');
           pxRect(px - 1, headY - 5, 2, 2, '#ef4444');
+        } else if (ag.accessory === 'monocle') {
+          pxRect(px + 1 + lookShift, eyeY - 2, 10, 9, 'rgba(191,219,254,0.32)');
+          pxRect(px + 1 + lookShift, eyeY - 2, 10, 1, 'rgba(255,255,255,0.65)');
+          pxRect(px + 1 + lookShift, eyeY - 2, 1, 9, '#b45309');
+          pxRect(px + 10 + lookShift, eyeY - 2, 1, 9, '#b45309');
+          pxRect(px + 1 + lookShift, eyeY + 6, 10, 1, '#b45309');
+          pxRect(px + 11 + lookShift, eyeY + 4, 5, 1, '#b45309');
+        } else if (ag.accessory === 'visor') {
+          pxRect(px - 13 + lookShift, eyeY - 2, 26, 7, 'rgba(56,189,248,0.42)');
+          pxRect(px - 13 + lookShift, eyeY - 2, 26, 2, 'rgba(224,242,254,0.75)');
+          pxRect(px - 14, eyeY - 1, 2, 5, '#0f172a');
+          pxRect(px + 12, eyeY - 1, 2, 5, '#0f172a');
+        }
+        ctx.restore();
         }
 
         // Crisp Nameplate Pill
@@ -4304,7 +4604,7 @@
           const bw = Math.min(188, Math.max(66, ctx.measureText(ag.bubble).width + 16));
           const bh = 20;
           const bx = Math.max(8, Math.min(WORLD_W - bw - 8, px - bw / 2));
-          const by = headY - 36 + Math.sin(now * 0.006) * 1.5;
+          const by = groundY - 96 + Math.sin(now * 0.006) * 1.5;
 
           pxRect(bx - 1, by - 1, bw + 2, bh + 2, isWorking ? ag.primaryColor : '#475569');
           pxRect(bx, by, bw, bh, '#0f172a');
@@ -4539,8 +4839,27 @@
           return;
         }
 
-        // 5. Walk selected agent to clicked floor point
-        if (cy > 110 && cy < 545) {
+        // 5. Clicked on Server Room racks?
+        if (cx >= 700 && cx <= 1090 && cy >= 296 && cy <= 430) {
+          sfx.blip();
+          moveAgent(sel, 760 + Math.random() * 260, 440, 'idle', 'Checking node health 🖥️');
+          spawnEmote(cx, cy, 'PING', '#a78bfa');
+          addComm('User', `Sent ${sel.name} to the R&D Server Room.`);
+          updateTelemetryAndHud();
+          return;
+        }
+
+        // 6. Clicked on Executive Conference Table?
+        if (cx >= 1100 && cx <= 1380 && cy >= 330 && cy <= 480) {
+          sfx.blip();
+          moveAgent(sel, 1180 + Math.random() * 140, 470, 'meeting', 'War room sync 📊');
+          addComm('User', `Sent ${sel.name} to the Executive War Room.`);
+          updateTelemetryAndHud();
+          return;
+        }
+
+        // 7. Walk selected agent to clicked floor point
+        if (cy > 100 && cy < WORLD_H - 20) {
           sfx.blip();
           moveAgent(sel, cx, cy, 'idle', 'On my way!');
           updateTelemetryAndHud();
@@ -5311,6 +5630,7 @@
             ag.skinColor = els.hireSkin.value;
             ag.hairColor = els.hireHair.value;
             ag.accessory = els.hireAccessory.value;
+            ag.sprite = els.hireSprite.value || '';
             ag.personaPrompt = `You are ${name}, ${role}. ${promptText}`;
             sfx.blip();
             addComm('HR Desk', `✏️ Updated agent profile for ${name} (${role}).`);
@@ -5342,6 +5662,7 @@
             skinColor: els.hireSkin.value,
             hairColor: els.hireHair.value,
             accessory: els.hireAccessory.value,
+            sprite: els.hireSprite.value || '',
             monitorColor: state.selectedMonitor,
             facing: 'up',
             deskId: freeDesk,
