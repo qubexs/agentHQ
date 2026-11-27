@@ -1446,6 +1446,7 @@
         <div id="objectTools" class="object-tools" aria-label="Office object editor">
           <div class="object-tools-title">▦ FLOOR OBJECTS <span id="objectFloorLabel">FLOOR 01</span></div>
           <button id="btnObjectEditMode" class="btn btn-sm btn-amber-soft" type="button">✥ Edit Objects: ON</button>
+          <button id="btnOpenObjectLibrary" class="btn btn-sm btn-cyan-soft" type="button">▦ Object Library</button>
           <div id="objectInventory" class="object-inventory"></div>
           <div class="object-tools-help">Double-click an object to select · drag to move · R to rotate · Store to inventory</div>
           <button id="btnStoreObject" class="btn btn-sm btn-rose-soft" disabled>▣ Store Selected</button>
@@ -1726,6 +1727,16 @@
           <button type="button" id="btnSaveLevelManager" class="btn btn-primary">Apply &amp; Sync Floors</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Object Library Modal -->
+  <div id="objectLibraryModal" class="modal-backdrop">
+    <div class="modal-card" style="max-width:780px;">
+      <div class="modal-header"><span class="modal-title">▦ OFFICE OBJECT LIBRARY</span><button id="btnCloseObjectLibrary" class="btn btn-sm">✕</button></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;"><input id="objectLibrarySearch" class="form-input" placeholder="Search desks, plants, monitors..." /><span id="objectLibraryCount" style="font:10px var(--font-mono);color:#64748b;white-space:nowrap;"></span></div>
+      <div id="objectLibraryGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;max-height:430px;overflow:auto;"></div>
+      <div style="color:#64748b;font:10px var(--font-mono);margin-top:10px;">Click an object to preview it. Use “Place on Floor” to add it to the active floor.</div>
     </div>
   </div>
 
@@ -2559,6 +2570,12 @@
         btnAddFloorLevel: document.getElementById('btnAddFloorLevel'),
         btnOpenSettings: document.getElementById('btnOpenSettings'),
         btnOpen3DStudio: document.getElementById('btnOpen3DStudio'),
+        btnOpenObjectLibrary: document.getElementById('btnOpenObjectLibrary'),
+        objectLibraryModal: document.getElementById('objectLibraryModal'),
+        btnCloseObjectLibrary: document.getElementById('btnCloseObjectLibrary'),
+        objectLibrarySearch: document.getElementById('objectLibrarySearch'),
+        objectLibraryGrid: document.getElementById('objectLibraryGrid'),
+        objectLibraryCount: document.getElementById('objectLibraryCount'),
         studio3DModal: document.getElementById('studio3DModal'),
         btnClose3DStudio: document.getElementById('btnClose3DStudio'),
         model3DViewer: document.getElementById('model3DViewer'),
@@ -6764,6 +6781,27 @@
       });
       els.btnCloseSettings.addEventListener('click', () => els.settingsModal.classList.remove('open'));
       els.btnCancelSettings.addEventListener('click', () => els.settingsModal.classList.remove('open'));
+
+      function renderObjectLibrary(query = '') {
+        const q = query.trim().toLowerCase();
+        const items = OBJECT_CATALOG.filter((obj) => `${obj.label} ${obj.type} ${obj.file}`.toLowerCase().includes(q));
+        if (!els.objectLibraryGrid) return;
+        els.objectLibraryCount.textContent = `${items.length} assets`;
+        els.objectLibraryGrid.innerHTML = items.map((obj) => `<div style="background:#0f172a;border:1px solid #233048;border-radius:8px;padding:7px;text-align:center;">
+          <div style="height:92px;display:grid;place-items:center;background:#080d18;border-radius:5px;margin-bottom:5px;"><img src="asset/objects/${obj.file}" alt="${obj.label}" style="max-width:90%;max-height:88px;image-rendering:pixelated;object-fit:contain;"></div>
+          <div style="color:#f8fafc;font:700 10px var(--font-mono);">${obj.label}</div>
+          <button class="btn btn-sm btn-cyan-soft" data-library-place="${obj.type}" style="width:100%;margin-top:6px;justify-content:center;">＋ Place on Floor</button>
+        </div>`).join('');
+        els.objectLibraryGrid.querySelectorAll('[data-library-place]').forEach((button) => button.addEventListener('click', () => {
+          state.placementObjectType = button.dataset.libraryPlace;
+          els.objectLibraryModal.classList.remove('open');
+          canvas.style.cursor = 'crosshair';
+          showToast(`Selected ${OBJECT_CATALOG.find((x) => x.type === state.placementObjectType)?.label || 'object'} — click the floor to place it.`);
+        }));
+      }
+      els.btnOpenObjectLibrary?.addEventListener('click', () => { renderObjectLibrary(); els.objectLibraryModal.classList.add('open'); });
+      els.btnCloseObjectLibrary?.addEventListener('click', () => els.objectLibraryModal.classList.remove('open'));
+      els.objectLibrarySearch?.addEventListener('input', (e) => renderObjectLibrary(e.target.value));
 
       // Lightweight GLB/GLTF studio. model-viewer handles orbit controls and
       // keeps this first version independent from the canvas renderer.
